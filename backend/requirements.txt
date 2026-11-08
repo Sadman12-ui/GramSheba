@@ -13,3 +13,4 @@ python-dotenv
 slowapi
 slowapi
 psycopg[binary]
+psycopg[binary]
