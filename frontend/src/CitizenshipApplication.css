@@ -1,0 +1,553 @@
+/* =========================================================
+   Citizenship Application GovTech Theme (Pixel-Perfect)
+   ========================================================= */
+
+.citizen-app-container {
+  max-width: 1200px;
+  margin: 2rem auto 4rem;
+  padding: 0 1.5rem;
+  font-family: 'Hind Siliguri', -apple-system, sans-serif;
+  color: #0f172a;
+}
+
+.app-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.8rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+/* ১. টপ ব্যানার */
+.top-banner-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 4px solid #15803d;
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.icon-badge {
+  font-size: 2.2rem;
+  width: 58px;
+  height: 58px;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.breadcrumb {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin-bottom: 0.3rem;
+}
+
+.bc-link {
+  cursor: pointer;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.top-banner-card h1 {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.banner-subtext {
+  margin: 0.3rem 0 0;
+  font-size: 0.92rem;
+  color: #64748b;
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ecfdf5;
+  color: #15803d;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+}
+
+.live-pill .dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+}
+
+/* ২. দুই কলাম গ্রিড */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 0.85fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .two-col-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-header-line {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.card-header-line h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.card-header-line p {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.icon-small {
+  font-size: 1.5rem;
+}
+
+.form-four-cols {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .form-four-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.field-box label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.4rem;
+}
+
+.field-box input,
+.field-box select {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #ffffff;
+  outline: none;
+}
+
+.notice-sub {
+  display: block;
+  margin-top: 0.8rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.safety-guideline-card {
+  background: #fcfdfd;
+}
+
+.guideline-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #475569;
+}
+
+/* ৩. কুইক সার্চ বার */
+.quick-search-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .quick-search-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.search-field {
+  flex: 1;
+}
+
+.search-field label {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: #334155;
+}
+
+.search-field input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.search-btn {
+  background: #15803d;
+  color: #ffffff;
+  border: none;
+  padding: 0.72rem 1.6rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ৪. মূল বিবরণ */
+.section-title-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.8rem;
+}
+
+.section-title-strip h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #0f172a;
+}
+
+.section-title-strip p {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.lang-toggle-box {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.lang-toggle-box button {
+  padding: 5px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lang-toggle-box button.active {
+  background: #15803d;
+  color: #ffffff;
+}
+
+.details-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 860px) {
+  .details-two-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.details-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.4rem;
+  background: #fcfdfe;
+}
+
+.box-title {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.box-icon {
+  font-size: 1.6rem;
+}
+
+.box-title h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.box-title small {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.form-grid-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.input-field.full {
+  grid-column: span 2;
+}
+
+.input-field label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.req {
+  color: #ef4444;
+}
+
+.input-field input,
+.input-field select {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  outline: none;
+  background: #ffffff;
+}
+
+.input-field input:focus,
+.input-field select:focus {
+  border-color: #15803d;
+}
+
+/* ৫. টগল স্ট্রিপ */
+.toggle-strip-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  padding: 1.2rem 1.8rem;
+}
+
+.toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.toggle-left strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.toggle-left p {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.toggle-right {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #cbd5e1;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #15803d;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.toggle-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #15803d;
+}
+
+/* ৬. ছবি আপলোড */
+.upload-dropzone-row {
+  display: flex;
+  align-items: center;
+  gap: 1.8rem;
+  margin-top: 0.8rem;
+}
+
+.photo-preview-box {
+  width: 110px;
+  height: 125px;
+  border: 2px dashed #94a3b8;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.photo-preview-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.empty-photo-icon {
+  font-size: 2.2rem;
+  color: #94a3b8;
+}
+
+.upload-instructions h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.upload-instructions p {
+  margin: 0 0 0.8rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.custom-file-upload {
+  display: inline-block;
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.custom-file-upload input[type="file"] {
+  display: none;
+}
+
+/* ৭. অতিরিক্ত তথ্য ও সাবমিট বার */
+.extra-field {
+  margin-top: 0.5rem;
+}
+
+.action-submit-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.2rem 1.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.disclaimer-text {
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.submit-final-btn {
+  background: #15803d;
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 2.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.25);
+  transition: all 0.2s ease;
+}
+
+.submit-final-btn:hover {
+  background: #166534;
+  transform: translateY(-2px);
+}
+
+.legal-warning-banner {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 12px;
+  padding: 1rem 1.4rem;
+  color: #991b1b;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.warn-icon {
+  font-size: 1.3rem;
+}

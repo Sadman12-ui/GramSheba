@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Users/macbookairm3/GramSheba/backend/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/macbookairm3/GramSheba/backend
+plugins: anyio-4.12.1
+collecting ... collected 18 items
+
+tests/test_phase1.py::test_phase1_test_file_is_running PASSED            [  5%]
+tests/test_phase1.py::test_test_database_is_separate PASSED              [ 11%]
+tests/test_phase1.py::test_test_database_tables_exist PASSED             [ 16%]
+tests/test_phase1.py::test_citizen_cannot_access_admin_endpoint PASSED   [ 22%]
+tests/test_phase1.py::test_admin_sees_only_own_union_applications PASSED [ 27%]
+tests/test_phase1.py::test_admin_endpoint_requires_token PASSED          [ 33%]
+tests/test_phase1.py::test_login_rejects_invalid_password PASSED         [ 38%]
+tests/test_phase1.py::test_authenticated_user_can_access_me PASSED       [ 44%]
+tests/test_phase1.py::test_birth_application_uses_authenticated_users_union PASSED [ 50%]
+tests/test_phase1.py::test_birth_application_rejects_future_birth_date PASSED [ 55%]
+tests/test_phase1.py::test_birth_application_rejects_invalid_gender PASSED [ 61%]
+tests/test_phase1.py::test_citizen_sees_only_own_birth_applications PASSED [ 66%]
+tests/test_phase1.py::test_me_rejects_invalid_token PASSED               [ 72%]
+tests/test_phase1.py::test_me_rejects_expired_token PASSED               [ 77%]
+tests/test_phase1.py::test_registration_rejects_duplicate_email PASSED   [ 83%]
+tests/test_phase1.py::test_login_accepts_uppercase_email PASSED          [ 88%]
+tests/test_phase1.py::test_super_admin_sees_applications_from_all_unions PASSED [ 94%]
+tests/test_phase1.py::test_database_rejects_application_from_wrong_union PASSED [100%]
+
+============================== 18 passed in 1.33s ==============================

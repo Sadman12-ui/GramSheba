@@ -1,0 +1,6 @@
+            conname             | contype 
+--------------------------------+---------
+ fk_application_applicant_union | f
+ uq_users_id_union_id           | u
+(2 rows)
+

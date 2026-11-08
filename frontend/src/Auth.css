@@ -1,0 +1,466 @@
+/* =========================================================
+   GramSheba Auth Styling (Exact Match for Auth.jsx)
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 0%, #ecfdf5 0%, #f8fafc 75%);
+  padding: 2.5rem 1rem;
+  font-family: 'Hind Siliguri', -apple-system, sans-serif;
+}
+
+.auth-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 450px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  padding: 2.2rem 2.4rem;
+  box-sizing: border-box;
+}
+
+/* Back Link */
+.auth-back {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 1.2rem;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.2s ease;
+}
+
+.auth-back:hover {
+  color: #15803d;
+}
+
+/* Logo & Headings */
+.auth-logo {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.auth-card h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.3rem;
+}
+
+.auth-subtitle {
+  color: #64748b;
+  font-size: 0.92rem;
+  margin: 0 0 1.5rem;
+}
+
+/* Tabs */
+.auth-tabs {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  gap: 4px;
+}
+
+.auth-tabs button {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.auth-tabs button.active {
+  background: #ffffff;
+  color: #15803d;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Form & Inputs */
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+  text-align: left;
+}
+
+.auth-card input[type="text"],
+.auth-card input[type="email"],
+.auth-card input[type="tel"] {
+  padding: 0.7rem 0.95rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  background: #ffffff;
+  transition: border-color 0.2s ease;
+}
+
+.auth-card input:focus {
+  border-color: #15803d;
+}
+
+/* Password Box */
+.password-field {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.password-field:focus-within {
+  border-color: #15803d;
+}
+
+.password-field input {
+  border: none;
+  flex: 1;
+  padding: 0.7rem 0.95rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.password-field button {
+  background: transparent;
+  border: none;
+  padding: 0 12px;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.password-field button:hover {
+  color: #15803d;
+}
+
+/* Options (Remember me & Forgot pass) */
+.auth-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+
+.remember-option {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.4rem !important;
+  color: #64748b;
+  cursor: pointer;
+  font-weight: 400 !important;
+}
+
+.text-button {
+  background: transparent;
+  border: none;
+  color: #15803d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.text-button:hover {
+  text-decoration: underline;
+}
+
+/* Feedback Messages */
+.auth-alert {
+  padding: 0.7rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.auth-alert.error {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.auth-alert.success {
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+/* Submit Button */
+.auth-submit {
+  background: #15803d;
+  color: #ffffff;
+  border: none;
+  padding: 0.8rem;
+  border-radius: 999px;
+  font-size: 0.96rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 0.4rem;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.auth-submit:hover {
+  background: #166534;
+  transform: translateY(-1px);
+}
+
+.auth-submit:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Switch Link & Footer */
+.auth-switch {
+  margin: 1.4rem 0 0.8rem;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.auth-switch button {
+  background: transparent;
+  border: none;
+  color: #15803d;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+.auth-switch button:hover {
+  text-decoration: underline;
+}
+
+.auth-security {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 1rem 0 0;
+}
+/* =========================================================
+   Digital Certificate Modal & Print Styling
+   ========================================================= */
+
+.cert-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(5px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.cert-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  max-width: 750px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cert-actions-top {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 1rem 1.5rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.close-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 0.55rem 1.2rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  background: #fecaca;
+}
+
+/* অফিসিয়াল জন্ম সনদপত্র ডিজাইন */
+.certificate-sheet {
+  padding: 3rem;
+  background: #ffffff;
+  margin: 1.5rem;
+  border: 4px double #15803d;
+  border-radius: 10px;
+  box-shadow: inset 0 0 15px rgba(21, 128, 61, 0.05);
+}
+
+.cert-header {
+  text-align: center;
+  border-bottom: 2px solid #15803d;
+  padding-bottom: 1.2rem;
+  margin-bottom: 1.8rem;
+}
+
+.cert-header h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #15803d;
+  font-weight: 700;
+}
+
+.cert-header h4 {
+  margin: 0.2rem 0;
+  font-size: 1.1rem;
+  color: #334155;
+  font-weight: 600;
+}
+
+.cert-header h5 {
+  margin: 0.2rem 0;
+  font-size: 1rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.cert-header h2 {
+  margin: 0.8rem 0 0.5rem;
+  font-size: 1.8rem;
+  color: #0f172a;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.cert-number {
+  display: inline-block;
+  background: #ecfdf5;
+  color: #15803d;
+  padding: 0.3rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  border: 1px solid #bbf7d0;
+  margin-top: 0.4rem;
+}
+
+.cert-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem 2rem;
+  margin-bottom: 2.5rem;
+  text-align: left;
+}
+
+.cert-body div {
+  font-size: 0.95rem;
+  color: #475569;
+  border-bottom: 1px dashed #cbd5e1;
+  padding-bottom: 0.4rem;
+}
+
+.cert-body strong {
+  color: #0f172a;
+  margin-left: 0.4rem;
+}
+
+.cert-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1.5rem;
+  text-align: left;
+}
+
+.cert-footer small {
+  color: #64748b;
+  display: block;
+}
+
+.cert-footer p {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.cert-seal {
+  text-align: center;
+  border-top: 1px solid #0f172a;
+  padding-top: 0.4rem;
+  min-width: 180px;
+}
+
+.cert-seal span {
+  display: block;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.cert-seal strong {
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+/* প্রিন্ট করার সময় বাটন লুকানোর জন্য */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .cert-modal,
+  .cert-modal * {
+    visibility: visible;
+  }
+  .cert-modal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+    border: none;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

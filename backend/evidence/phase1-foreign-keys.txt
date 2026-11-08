@@ -1,0 +1,8 @@
+                  conname                  | confdeltype | confupdtype |                                definition                                
+-------------------------------------------+-------------+-------------+--------------------------------------------------------------------------
+ birth_applications_applicant_user_id_fkey | a           | a           | FOREIGN KEY (applicant_user_id) REFERENCES users(id)
+ birth_applications_union_id_fkey          | a           | a           | FOREIGN KEY (union_id) REFERENCES unions(id)
+ fk_application_applicant_union            | a           | a           | FOREIGN KEY (applicant_user_id, union_id) REFERENCES users(id, union_id)
+ users_union_id_fkey                       | a           | a           | FOREIGN KEY (union_id) REFERENCES unions(id)
+(4 rows)
+

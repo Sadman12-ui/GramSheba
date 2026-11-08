@@ -1,0 +1,136 @@
+
+.birth-page {
+  min-height: 100vh;
+  padding: 40px 20px;
+  background: #f2f8f2;
+}
+
+.birth-card {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px;
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(20, 80, 40, 0.08);
+}
+
+.birth-back {
+  border: none;
+  background: transparent;
+  color: #24753a;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.birth-heading {
+  text-align: center;
+  margin: 26px 0;
+}
+
+.birth-heading span {
+  font-size: 38px;
+}
+
+.birth-heading h1 {
+  color: #176b32;
+  font-size: 26px;
+}
+
+.birth-heading p,
+.birth-note {
+  color: #66736a;
+  line-height: 1.7;
+}
+
+.birth-form {
+  display: grid;
+  gap: 18px;
+}
+
+.birth-form label {
+  display: grid;
+  gap: 8px;
+  color: #263c2d;
+  font-weight: 600;
+}
+
+.birth-form input,
+.birth-form select,
+.birth-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d4e2d6;
+  border-radius: 9px;
+  font: inherit;
+  background: white;
+}
+
+.birth-form input:focus,
+.birth-form select:focus,
+.birth-form textarea:focus {
+  outline: 2px solid #65a875;
+  border-color: transparent;
+}
+
+.birth-submit {
+  padding: 14px;
+  background: #21813d;
+  color: white;
+  border: none;
+  border-radius: 9px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.birth-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.birth-message {
+  margin: 20px 0;
+  padding: 14px;
+  border-radius: 9px;
+  background: #fff0ed;
+  color: #a32c20;
+  overflow-wrap: anywhere;
+}
+
+.birth-success {
+  background: #eaf7ec;
+  color: #176b32;
+}
+
+.tracking-id {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.birth-message button {
+  padding: 8px 12px;
+  border: 1px solid #8cbd95;
+  border-radius: 7px;
+  background: white;
+  cursor: pointer;
+}
+
+.birth-note {
+  margin-top: 22px;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .birth-page {
+    padding: 20px 12px;
+  }
+
+  .birth-card {
+    padding: 22px 16px;
+  }
+
+  .birth-heading h1 {
+    font-size: 22px;
+  }
+}

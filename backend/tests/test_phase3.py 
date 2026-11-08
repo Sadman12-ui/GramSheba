@@ -1,0 +1,86 @@
+import pytest
+from fastapi.testclient import TestClient
+
+from main import app, SessionLocal, password_hash, create_access_token
+from models import Union, User, BirthApplication
+
+client = TestClient(app)
+
+
+@pytest.fixture(scope="module")
+def setup_phase3_data():
+    """Phase 3 টেস্টের জন্য সুপার অ্যাডমিন ও ইউনিয়ন ডাটা প্রস্তুত করে"""
+    with SessionLocal() as db:
+        u_hq = db.query(Union).filter(Union.code == "HQ_CENTRAL").first()
+        if not u_hq:
+            u_hq = Union(name="সেন্ট্রাল হেডকোয়ার্টার", code="HQ_CENTRAL")
+            db.add(u_hq)
+            db.commit()
+            db.refresh(u_hq)
+
+        sa_email = "superadmin@gramsheba.org"
+        super_admin = db.query(User).filter(User.email == sa_email).first()
+        if not super_admin:
+            super_admin = User(
+                full_name="Chief Super Admin",
+                email=sa_email,
+                phone="01999999999",
+                area="সচিবালয়, ঢাকা",
+                password_hash=password_hash.hash("SuperSecret123"),
+                role="super_admin",
+                union_id=u_hq.id,
+            )
+            db.add(super_admin)
+            db.commit()
+            db.refresh(super_admin)
+
+        yield {
+            "super_admin": super_admin,
+            "u_hq": u_hq,
+        }
+
+
+def test_super_admin_can_create_new_union(setup_phase3_data):
+    """FR-01: সুপার অ্যাডমিন নতুন ইউনিয়ন রেজিস্টার করতে পারবে"""
+    sa = setup_phase3_data["super_admin"]
+    token = create_access_token(sa.email)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    payload = {
+        "name": "রামপুর ইউনিয়ন পরিষদ",
+        "code": "RAMPUR_01",
+    }
+    res = client.post("/api/super-admin/unions", json=payload, headers=headers)
+    assert res.status_code in [201, 409]
+    if res.status_code == 201:
+        data = res.json()
+        assert data["name"] == "রামপুর ইউনিয়ন পরিষদ"
+        assert data["code"] == "RAMPUR_01"
+
+
+def test_regular_citizen_forbidden_from_super_admin_endpoints(setup_phase3_data):
+    """সাধারণ নাগরিক সুপার অ্যাডমিন এন্ডপয়েন্টে অ্যাক্সেস করতে পারবে না (403 Forbidden)"""
+    with SessionLocal() as db:
+        citizen = db.query(User).filter(User.role == "citizen").first()
+
+    token = create_access_token(citizen.email)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.get("/api/super-admin/analytics", headers=headers)
+    assert res.status_code == 403
+
+
+def test_super_admin_can_view_system_analytics(setup_phase3_data):
+    """FR-15: সুপার অ্যাডমিন সেন্ট্রাল অ্যানালিটিক্স রিপোর্ট দেখতে পারবে"""
+    sa = setup_phase3_data["super_admin"]
+    token = create_access_token(sa.email)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.get("/api/super-admin/analytics", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert "total_unions" in data
+    assert "total_users" in data
+    assert "total_applications" in data
+    assert "approved_applications" in data
+    assert data["total_unions"] >= 1
