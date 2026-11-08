@@ -10,3 +10,4 @@ pwdlib[argon2]
 pytest
 requests
 python-dotenv
+slowapi
