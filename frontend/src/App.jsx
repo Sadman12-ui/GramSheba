@@ -5,11 +5,11 @@ import BirthApplication from './BirthApplication'
 import CitizenshipApplication from './CitizenshipApplication'
 import PublicVerifyModal from './PublicVerifyModal'
 import OtherServicesModal from './OtherServicesModal'
-import UnionRegistration from './components/UnionRegistration'
-import GovStatsGrid from './components/GovStatsGrid'
+import UnionRegistration from './UnionRegistration'
+import GovStatsGrid from './GovStatsGrid'
 import './App.css'
 
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 const certificateServices = [
   { id: 'birth', title: 'জন্ম নিবন্ধন', price: 'মূল্য: BDT — সরকারি ফি প্রযোজ্য', icon: '📄' },
@@ -105,10 +105,21 @@ function App() {
     if (!token) return
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/api/birth-applications/my`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) setMyApplications(await res.json())
+      const headers = { Authorization: `Bearer ${token}` }
+      const [birthRes, citizenshipRes, servicesRes] = await Promise.all([
+        fetch(`${API_BASE}/api/birth-applications/my`, { headers }),
+        fetch(`${API_BASE}/api/citizenship-applications/my`, { headers }),
+        fetch(`${API_BASE}/api/services/my`, { headers }),
+      ])
+      for (const response of [birthRes, citizenshipRes, servicesRes]) {
+        if (!response.ok) throw new Error('আবেদন তালিকা লোড করা যায়নি।')
+      }
+      const [birthRows, citizenshipRows, serviceRows] = await Promise.all([birthRes.json(), citizenshipRes.json(), servicesRes.json()])
+      setMyApplications([
+        ...birthRows,
+        ...citizenshipRows.map((row) => ({ ...row, child_name: row.name || 'নাগরিকত্ব সনদ আবেদন', father_name: row.guardian_name || '' })),
+        ...serviceRows.map((row) => ({ ...row, child_name: row.applicant_name || row.service_type, father_name: 'সাধারণ সেবা আবেদন' })),
+      ])
     } catch (err) {
       console.error(err)
     } finally {
@@ -124,16 +135,9 @@ function App() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) setDashboardStats(await res.json())
-    } catch {
-      setDashboardStats({
-        total_applications: myApplications.length || 1,
-        pending_count: myApplications.filter((a) => a.status === 'pending').length || 1,
-        approved_count: myApplications.filter((a) => a.status === 'approved').length || 0,
-        rejected_count: myApplications.filter((a) => a.status === 'rejected').length || 0,
-        notifications: [
-          { id: 1, text: 'আপনার আবেদনটি সংশ্লিষ্ট ইউনিয়ন পরিষদে যাচাই চলছে।', time: 'আজকে' },
-        ],
-      })
+    } catch (error) {
+      console.error('Dashboard load failed:', error)
+      setDashboardStats(null)
     }
   }
 

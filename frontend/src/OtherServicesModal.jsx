@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 function OtherServicesModal({ service, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -50,6 +50,7 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
           })
         })
         const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || 'অভিযোগ জমা হয়নি।')
         alert(`✅ অভিযোগ সফলভাবে নথিভুক্ত হয়েছে!\nনম্বর: ${data.complaint_id}\nসংশ্লিষ্ট ইউনিয়ন পরিষদ প্রয়োজনীয় ব্যবস্থা গ্রহণ করবে।`)
       } else {
         const res = await fetch(`${API_BASE}/api/services/apply`, {
@@ -74,15 +75,15 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
           })
         })
         const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || 'আবেদন জমা হয়নি।')
         alert(`✅ আবেদন সফলভাবে জমা হয়েছে!\nট্র্যাকিং নম্বর: ${data.tracking_id}`)
       }
       onSuccess()
-    } catch {
-      alert('সার্ভার রেসপন্স করছে না। অফলাইনে ড্রাফট সংরক্ষিত হয়েছে।')
-      onSuccess()
+      onClose()
+    } catch (error) {
+      alert(error.message || 'সার্ভার রেসপন্স করছে না। আবেদন জমা হয়নি; আবার চেষ্টা করুন।')
     } finally {
       setLoading(false)
-      onClose()
     }
   }
 

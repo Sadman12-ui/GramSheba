@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import './PaymentModal.css'
+import { API_BASE } from './api'
+import { API_BASE } from './api'
 
 function PaymentModal({ amount = 50, serviceName = "সরকারি নাগরিক সেবা ফি", applicationId = "GS-APP", onSuccess, onClose }) {
   const [gateway, setGateway] = useState('bkash') // 'bkash' | 'nagad' | 'card'
@@ -10,7 +12,6 @@ function PaymentModal({ amount = 50, serviceName = "সরকারি নাগ
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  const apiBase = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
 
   // ডিফেন্স ডেমো দ্রুত দেখানোর জন্য কুইক ফিল
   function handleQuickFillDemo() {
@@ -55,9 +56,11 @@ function PaymentModal({ amount = 50, serviceName = "সরকারি নাগ
 
     try {
       // ব্যাকএন্ড মক পেমেন্ট এন্ডপয়েন্টে রিকোয়েস্ট
-      const response = await fetch(`${apiBase}/api/payments/mock-checkout`, {
+      const token = sessionStorage.getItem('gramsheba_token')
+      if (!token) throw new Error('লগইন সেশন পাওয়া যায়নি। আবার লগইন করুন।')
+      const response = await fetch(`${API_BASE}/api/payments/mock-checkout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           application_id: applicationId,
           gateway,
@@ -80,18 +83,8 @@ function PaymentModal({ amount = 50, serviceName = "সরকারি নাগ
         timestamp: data.timestamp
       })
     } catch (err) {
-      // ব্যাকএন্ড অফলাইন থাকলেও ডিফেন্স প্রেজেন্টেশন যেন না আটকায় তার জন্য সেইফ ফলব্যাক
-      console.warn("Backend offline, fallback demo execution:", err)
-      setTimeout(() => {
-        setLoading(false)
-        const fallbackTxnId = `TRX${gateway.toUpperCase()}${Math.floor(100000 + Math.random() * 900000)}`
-        onSuccess({
-          txnId: fallbackTxnId,
-          gateway,
-          amount,
-          timestamp: new Date().toLocaleString()
-        })
-      }, 800)
+      setLoading(false)
+      setErrorMsg(err.message || 'পেমেন্ট সার্ভারে সংযোগ করা যায়নি। কোনো পেমেন্ট সম্পন্ন হয়নি।')
     }
   }
 
@@ -217,7 +210,7 @@ function PaymentModal({ amount = 50, serviceName = "সরকারি নাগ
             <button type="button" onClick={handleQuickFillDemo} className="quick-demo-link">
               ⚡ ডেমো ডেটা অটো-ফিল
             </button>
-            <p className="security-tag">🔒 256-Bit SSL Encrypted GovTech Payment Gateway</p>
+            <p className="security-tag">ডেমো পেমেন্ট: এটি কোনো বাস্তব bKash/Nagad/Card Gateway নয়</p>
           </div>
         </div>
 

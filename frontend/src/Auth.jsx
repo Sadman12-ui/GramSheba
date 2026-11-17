@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './Auth.css'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+import { API_BASE } from './api'
 
 // বাংলাদেশের সকল বিভাগ, জেলা ও উপজেলার পূর্ণাঙ্গ ক্যাসকেডিং ডেটাসেট
 const BD_LOCATIONS = {
@@ -93,6 +93,11 @@ function Auth({ onBack, onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [resetOtp, setResetOtp] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
 
   // লগইন ফিল্ড
   const [loginEmail, setLoginEmail] = useState('')
@@ -170,8 +175,8 @@ function Auth({ onBack, onLogin }) {
         setError('সঠিক ১১ ডিজিটের মোবাইল নম্বর প্রদান করুন।')
         return
       }
-      if (formData.adminPassword.length < 6) {
-        setError('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।')
+      if (formData.adminPassword.length < 8) {
+        setError('পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।')
         return
       }
       setStep(2)
@@ -187,47 +192,64 @@ function Auth({ onBack, onLogin }) {
   // ফাইনাল নিবন্ধন সাবমিট (ধাপ ৩)
   async function handleRegisterSubmit(e) {
     e.preventDefault()
+    setError('নিরাপত্তার কারণে Union Admin নিজে থেকে নিবন্ধন করতে পারবেন না। Super Admin-এর মাধ্যমে ইউনিয়ন ও Admin Account তৈরি করতে হবে।')
+  }
+
+
+
+  async function handleSendResetOtp(e) {
+    e.preventDefault()
     setError('')
-
-    if (!formData.unionName.trim() || !formData.unionCode.trim()) {
-      setError('ইউনিয়ন পরিষদের নাম এবং কোড দেওয়া আবশ্যক।')
-      return
-    }
-
     setLoading(true)
-
     try {
-      const res = await fetch(`${API_BASE}/api/register`, {
+      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: formData.adminName.trim(),
-          email: formData.adminEmail.trim().toLowerCase(),
-          phone: formData.adminPhone.trim(),
-          password: formData.adminPassword,
-          union_code: formData.unionCode.trim().toUpperCase(),
-          area: `${formData.unionName.trim()}, ${formData.upazila}, ${formData.district}`,
-        }),
+        body: JSON.stringify({ email: forgotEmail.trim().toLowerCase() }),
       })
-
       const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.detail || 'নিবন্ধন সম্পন্ন করা যায়নি। ইউনিয়ন কোড পুনরায় যাচাই করুন।')
-      }
-
-      alert('অভিনন্দন! ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তার নিবন্ধন সফল হয়েছে। অনুগ্রহ করে লগইন করুন।')
-      setIsLogin(true)
-      setLoginEmail(formData.adminEmail)
-      setStep(1)
+      if (!res.ok) throw new Error(data.detail || 'OTP পাঠানো যায়নি।')
+      setOtpSent(true)
+      setError(data.message || 'ইমেইল থাকলে OTP পাঠানো হয়েছে।')
     } catch (err) {
-      setError(err.message || 'সার্ভার সংযোগ বিচ্ছিন্ন।')
+      setError(err.message || 'OTP পাঠাতে সমস্যা হয়েছে।')
     } finally {
       setLoading(false)
     }
   }
 
-  // লগইন হ্যান্ডলার
+  async function handleResetPassword(e) {
+    e.preventDefault()
+    setError('')
+    if (newPassword.length < 8) {
+      setError('নতুন পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+          otp: resetOtp.trim(),
+          new_password: newPassword,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'পাসওয়ার্ড পরিবর্তন করা যায়নি।')
+      setShowForgotPassword(false)
+      setOtpSent(false)
+      setLoginEmail(forgotEmail)
+      setError('পাসওয়ার্ড পরিবর্তন হয়েছে। নতুন পাসওয়ার্ড দিয়ে লগইন করুন।')
+    } catch (err) {
+      setError(err.message || 'পাসওয়ার্ড পরিবর্তনে সমস্যা হয়েছে।')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+    // লগইন হ্যান্ডলার
   async function handleLoginSubmit(e) {
     e.preventDefault()
     setError('')
@@ -352,52 +374,39 @@ function Auth({ onBack, onLogin }) {
 
           {/* ===================== লগইন ভিউ ===================== */}
           {isLogin ? (
-            <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            showForgotPassword ? (
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
-                  ই-মেইল ঠিকানা
-                </label>
-                <input
-                  type="email"
-                  placeholder="admin@gramsheba.gov.bd"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.95rem', outline: 'none' }}
-                  required
-                />
+                <form onSubmit={handleSendResetOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                  <h3 style={{ margin: 0, color: '#1b734e' }}>পাসওয়ার্ড রিসেট</h3>
+                  <input type="email" placeholder="আপনার অ্যাকাউন্টের ইমেইল" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required style={{ width: '100%', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '9px' }} />
+                  <button type="submit" disabled={loading} style={{ padding: '0.75rem', border: 0, borderRadius: '9px', background: '#1b734e', color: '#fff', fontWeight: 700 }}>{loading ? 'পাঠানো হচ্ছে...' : 'ইমেইলে OTP পাঠান'}</button>
+                </form>
+                {otpSent && (
+                  <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+                    <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="৬ সংখ্যার OTP" value={resetOtp} onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} required style={{ width: '100%', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '9px' }} />
+                    <input type="password" placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={8} required style={{ width: '100%', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '9px' }} />
+                    <button type="submit" disabled={loading} style={{ padding: '0.75rem', border: 0, borderRadius: '9px', background: '#1b734e', color: '#fff', fontWeight: 700 }}>পাসওয়ার্ড পরিবর্তন করুন</button>
+                  </form>
+                )}
+                <button type="button" onClick={() => { setShowForgotPassword(false); setOtpSent(false); setError('') }} style={{ marginTop: '1rem', border: 0, background: 'transparent', color: '#1b734e', cursor: 'pointer' }}>← লগইনে ফিরে যান</button>
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
-                  পাসওয়ার্ড
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.95rem', outline: 'none' }}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.82rem' }}
-                  >
-                    {showPassword ? 'লুকান' : 'দেখুন'}
-                  </button>
+            ) : (
+              <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>ই-মেইল ঠিকানা</label>
+                  <input type="email" placeholder="admin@gramsheba.gov.bd" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.95rem', outline: 'none' }} required />
                 </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={{ background: '#1b734e', color: '#fff', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' }}
-              >
-                {loading ? 'লগইন হচ্ছে...' : 'লগইন করুন →'}
-              </button>
-            </form>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>পাসওয়ার্ড</label>
+                  <div style={{ position: 'relative' }}>
+                    <input type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} style={{ width: '100%', padding: '0.75rem 1rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.95rem', outline: 'none' }} required />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.82rem' }}>{showPassword ? 'লুকান' : 'দেখুন'}</button>
+                  </div>
+                </div>
+                <button type="submit" disabled={loading} style={{ background: '#1b734e', color: '#fff', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' }}>{loading ? 'লগইন হচ্ছে...' : 'লগইন করুন →'}</button>
+                <button type="button" onClick={() => { setForgotEmail(loginEmail); setShowForgotPassword(true); setError('') }} style={{ border: 0, background: 'transparent', color: '#1b734e', cursor: 'pointer', fontWeight: 600 }}>পাসওয়ার্ড ভুলে গেছেন?</button>
+              </form>
+            )
           ) : (
             /* ===================== ৩-ধাপের নিবন্ধন ভিউ ===================== */
             <div>
@@ -496,7 +505,7 @@ function Auth({ onBack, onLogin }) {
                       <input
                         type="password"
                         name="adminPassword"
-                        placeholder="•••••••• (কমপক্ষে ৬ অক্ষর)"
+                        placeholder="•••••••• (কমপক্ষে ৮ অক্ষর)"
                         value={formData.adminPassword}
                         onChange={handleFormChange}
                         style={{ width: '100%', padding: '0.7rem 0.9rem', border: '1.5px solid #a7f3d0', borderRadius: '10px', fontSize: '0.9rem', outline: 'none' }}

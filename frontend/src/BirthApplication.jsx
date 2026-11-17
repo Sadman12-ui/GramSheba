@@ -10,7 +10,7 @@ function getTodayDate() {
   return `${year}-${month}-${day}`
 }
 
-const API_URL = 'http://127.0.0.1:8000'
+import { API_BASE as API_URL } from './api'
 
 function BirthApplication({ onBack }) {
   const [loading, setLoading] = useState(false)

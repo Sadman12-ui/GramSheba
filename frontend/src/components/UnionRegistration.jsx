@@ -1,3 +1,4 @@
+import { API_BASE } from './api'
 import React, { useState } from 'react';
 
 export default function UnionRegistration({ onClose, onSuccess }) {
@@ -46,8 +47,8 @@ export default function UnionRegistration({ onClose, onSuccess }) {
         setErrorMsg('সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন।');
         return;
       }
-      if (formData.adminPassword.length < 6) {
-        setErrorMsg('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+      if (formData.adminPassword.length < 8) {
+        setErrorMsg('পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।');
         return;
       }
       setCurrentStep(2);
@@ -81,26 +82,54 @@ export default function UnionRegistration({ onClose, onSuccess }) {
     setLoading(true);
 
     try {
-      const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
-      
-      // ব্যাকএন্ড রেজিস্টার এপিআই কল
-      const response = await fetch(`${apiBase}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: formData.adminName,
-          email: formData.adminEmail,
-          phone: formData.adminPhone,
-          password: formData.adminPassword,
-          union_code: formData.unionCode.toUpperCase(),
-          area: `${formData.unionName}, ${formData.upazila}, ${formData.district}`
-        })
-      });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || 'নিবন্ধন সফল হয়নি। ইউনিয়ন কোড পুনরায় যাচাই করুন।');
+      const token = sessionStorage.getItem('gramsheba_token');
+      const user = JSON.parse(sessionStorage.getItem('gramsheba_user') || 'null');
+      if (!token || user?.role !== 'super_admin') {
+        throw new Error('নিরাপত্তার জন্য শুধুমাত্র Super Admin নতুন ইউনিয়ন ও Union Admin তৈরি করতে পারবেন।');
       }
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      };
+
+      // Avoid creating a duplicate union if the code already exists.
+      const listResponse = await fetch(`${API_BASE}/api/super-admin/unions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const listData = await listResponse.json();
+      if (!listResponse.ok) throw new Error(listData.detail || 'ইউনিয়নের তালিকা পাওয়া যায়নি।');
+
+      const normalizedCode = formData.unionCode.trim().toUpperCase();
+      let union = listData.find((item) => item.code?.toUpperCase() === normalizedCode);
+      if (!union) {
+        const unionResponse = await fetch(`${API_BASE}/api/super-admin/unions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            name: formData.unionName.trim(),
+            code: normalizedCode,
+          }),
+        });
+        const unionData = await unionResponse.json();
+        if (!unionResponse.ok) throw new Error(unionData.detail || 'ইউনিয়ন তৈরি করা যায়নি।');
+        union = unionData;
+      }
+
+      const adminResponse = await fetch(`${API_BASE}/api/super-admin/create-admin`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          full_name: formData.adminName.trim(),
+          email: formData.adminEmail.trim().toLowerCase(),
+          phone: formData.adminPhone.trim(),
+          password: formData.adminPassword,
+          area: `${formData.unionName}, ${formData.upazila}, ${formData.district}`,
+          union_id: union.id,
+        }),
+      });
+      const adminData = await adminResponse.json();
+      if (!adminResponse.ok) throw new Error(adminData.detail || 'Union Admin তৈরি করা যায়নি।');
 
       alert('অভিনন্দন! ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তার নিবন্ধন সফল হয়েছে। এখন লগইন করতে পারবেন।');
       if (onSuccess) onSuccess();
@@ -289,7 +318,7 @@ export default function UnionRegistration({ onClose, onSuccess }) {
                     name="adminPassword"
                     value={formData.adminPassword}
                     onChange={handleChange}
-                    placeholder="•••••••• (কমপক্ষে ৬ অক্ষর)"
+                    placeholder="•••••••• (কমপক্ষে ৮ অক্ষর)"
                     className="w-full px-4 py-3 border border-emerald-300/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-gray-800"
                     required
                   />

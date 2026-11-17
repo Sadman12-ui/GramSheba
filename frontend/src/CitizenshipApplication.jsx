@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import PaymentModal from './PaymentModal'
 import './CitizenshipApplication.css'
 
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 // বাংলাদেশের প্রশাসনিক তথ্য
 const BANGLADESH_GEO_DATA = {
@@ -503,6 +503,7 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
       district: selectedDistrict,
       upazila: selectedUpazila,
       union_name: selectedUnion,
+      payment_transaction_id: payInfo.txnId,
     }
 
     try {
@@ -516,6 +517,7 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
       })
 
       const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'আবেদন জমা দেওয়া যায়নি।')
       localStorage.removeItem('gramsheba_citizenship_draft')
 
       alert(
@@ -529,21 +531,8 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
       } else {
         onBack()
       }
-    } catch {
-      const demoTrack = 'GS-CITIZEN-' + Math.floor(100000 + Math.random() * 900000)
-      localStorage.removeItem('gramsheba_citizenship_draft')
-
-      alert(
-        lang === 'bn'
-          ? `🎉 পেমেন্ট সফল (${payInfo.gateway.toUpperCase()})!\nট্রানজ্যাকশন আইডি: ${payInfo.txnId}\nট্র্যাকিং নম্বর: ${demoTrack}`
-          : `🎉 Payment Successful (${payInfo.gateway.toUpperCase()})!\nTransaction ID: ${payInfo.txnId}\nTracking ID: ${demoTrack}`
-      )
-
-      if (onSubmitSuccess) {
-        onSubmitSuccess()
-      } else {
-        onBack()
-      }
+    } catch (error) {
+      alert(error.message || (lang === 'bn' ? 'আবেদন জমা হয়নি। আপনার ড্রাফট সংরক্ষিত আছে; আবার চেষ্টা করুন।' : 'Application was not submitted. Your draft is saved; please retry.'))
     } finally {
       setLoading(false)
     }
