@@ -1,9 +1,9 @@
 .payment-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(5px);
-  z-index: 3000;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,61 +11,72 @@
 }
 
 .payment-card {
-  background: #ffffff;
   width: 100%;
-  max-width: 400px;
-  border-radius: 18px;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+/* Gateway Themes */
+.bkash-theme .payment-header {
+  background: #D12053;
+}
+.nagad-theme .payment-header {
+  background: #F7941D;
+}
+.card-theme .payment-header {
+  background: #1E293B;
 }
 
 .payment-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.2rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  color: #ffffff;
 }
 
 .gateway-selector {
   display: flex;
-  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 30px;
+  padding: 3px;
+  gap: 2px;
 }
 
 .gateway-selector button {
-  padding: 6px 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #ffffff;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  padding: 6px 16px;
+  font-size: 0.85rem;
   font-weight: 700;
+  border-radius: 25px;
   cursor: pointer;
+  transition: background 0.2s;
 }
 
-.gateway-selector button.active.bkash {
-  background: #e2136e;
-  color: white;
-  border-color: #e2136e;
-}
-
-.gateway-selector button.active.nagad {
-  background: #f7941d;
-  color: white;
-  border-color: #f7941d;
-}
-
-.gateway-selector button.active.card {
-  background: #15803d;
-  color: white;
-  border-color: #15803d;
+.gateway-selector button.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .close-pay-btn {
   background: transparent;
   border: none;
-  font-size: 1.2rem;
+  color: #ffffff;
+  font-size: 1.25rem;
   cursor: pointer;
-  color: #64748b;
+  padding: 4px 8px;
+  opacity: 0.8;
+}
+.close-pay-btn:hover {
+  opacity: 1;
 }
 
 .payment-body {
@@ -73,48 +84,166 @@
 }
 
 .pay-amount-box {
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
   border-radius: 12px;
   padding: 1rem;
   text-align: center;
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.25rem;
 }
 
-.pay-amount-box h3 {
-  margin: 0.2rem 0;
-  font-size: 1.8rem;
-  color: #0f172a;
+.pay-label {
+  font-size: 0.75rem;
+  color: #64748B;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
-.payment-body form label {
+.pay-amount {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0.25rem 0;
+}
+
+.pay-service-title {
+  font-size: 0.8rem;
+  color: #059669;
+  font-weight: 600;
+}
+
+/* Stepper */
+.pay-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #94A3B8;
+  font-weight: 600;
+}
+
+.step-dot.completed {
+  color: #0F172A;
+  font-weight: 700;
+}
+
+.step-line {
+  width: 20px;
+  height: 2px;
+  background: #E2E8F0;
+}
+
+.payment-error-alert {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  color: #B91C1C;
+  font-size: 0.8rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.pay-input-group {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1rem;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #334155;
-  text-align: left;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
 }
 
-.payment-body form input {
-  padding: 0.65rem 0.85rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 0.95rem;
+.pay-input-group span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.pay-input-group input {
+  padding: 0.75rem 1rem;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 10px;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  font-weight: 600;
   outline: none;
+  transition: border-color 0.2s;
+}
+
+.pay-input-group input:focus {
+  border-color: #059669;
+}
+
+.step-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.pay-back-btn {
+  background: #F1F5F9;
+  border: none;
+  color: #475569;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .pay-submit-btn {
-  width: 100%;
-  padding: 0.75rem;
-  background: #15803d;
-  color: white;
+  flex: 1;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  color: #ffffff;
+  padding: 0.85rem;
+  border-radius: 10px;
   font-weight: 700;
+  font-size: 0.95rem;
   cursor: pointer;
-  margin-top: 0.5rem;
+  transition: opacity 0.2s;
+}
+
+.bkash-theme .pay-submit-btn {
+  background: #D12053;
+}
+.nagad-theme .pay-submit-btn {
+  background: #F7941D;
+}
+.card-theme .pay-submit-btn {
+  background: #1E293B;
+}
+
+.pay-submit-btn:hover {
+  opacity: 0.92;
+}
+
+.pay-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.payment-footer {
+  margin-top: 1.25rem;
+  text-align: center;
+  border-top: 1px solid #F1F5F9;
+  padding-top: 0.85rem;
+}
+
+.quick-demo-link {
+  background: none;
+  border: none;
+  color: #2563EB;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+  display: inline-block;
+}
+
+.quick-demo-link:hover {
+  text-decoration: underline;
+}
+
+.security-tag {
+  font-size: 0.7rem;
+  color: #94A3B8;
+  margin: 0;
 }

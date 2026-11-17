@@ -1,10 +1,12 @@
-import Chatbot from './Chatbot'
 import { useEffect, useState } from 'react'
+import Chatbot from './Chatbot'
 import Auth from './Auth'
 import BirthApplication from './BirthApplication'
 import CitizenshipApplication from './CitizenshipApplication'
 import PublicVerifyModal from './PublicVerifyModal'
 import OtherServicesModal from './OtherServicesModal'
+import UnionRegistration from './components/UnionRegistration'
+import GovStatsGrid from './components/GovStatsGrid'
 import './App.css'
 
 const API_BASE = 'http://localhost:8000'
@@ -31,6 +33,17 @@ function getSavedUser() {
 }
 
 function App() {
+  // ডার্ক মোড স্টেট ও টগল হ্যান্ডলার
+  const [darkMode, setDarkMode] = useState(
+    localStorage.getItem('gramsheba_theme') === 'dark'
+  )
+
+  const toggleDarkMode = () => {
+    const newMode = !darkMode
+    setDarkMode(newMode)
+    localStorage.setItem('gramsheba_theme', newMode ? 'dark' : 'light')
+  }
+
   const [selectedGenericService, setSelectedGenericService] = useState(null)
   const [dashboardStats, setDashboardStats] = useState(null)
   const [trackingTimelineApp, setTrackingTimelineApp] = useState(null)
@@ -39,6 +52,7 @@ function App() {
   const [showBirthForm, setShowBirthForm] = useState(false)
   const [showCitizenshipForm, setShowCitizenshipForm] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [showUnionRegister, setShowUnionRegister] = useState(false)
   const [user, setUser] = useState(getSavedUser)
 
   const [currentView, setCurrentView] = useState('home')
@@ -389,7 +403,7 @@ function App() {
   const isSuperAdmin = user && user.role === 'super_admin'
 
   return (
-    <div className="app">
+    <div className={`app ${darkMode ? 'dark-theme' : ''}`}>
       {/* নেভিগেশন বার */}
       <header className="navbar">
         <a
@@ -425,6 +439,16 @@ function App() {
             🔍 সনদ যাচাই
           </button>
 
+          {/* ৩-ধাপের ইউনিয়ন পরিষদ নিবন্ধন বাটন */}
+          <button
+            type="button"
+            className="nav-link-btn"
+            style={{ color: '#16a34a', fontWeight: 700 }}
+            onClick={() => setShowUnionRegister(true)}
+          >
+            🏛️ ইউনিয়ন নিবন্ধন
+          </button>
+
           {user && (
             <button
               type="button"
@@ -456,24 +480,45 @@ function App() {
           )}
         </nav>
 
-        {user ? (
-          <div className="user-actions">
-            <span className="user-greeting">
-              স্বাগতম, <strong>{user.full_name}</strong>
-            </span>
-            <button className="login-button" onClick={handleLogout}>
-              লগআউট
-            </button>
-          </div>
-        ) : (
-          <button className="login-button" onClick={() => setShowAuth(true)}>
-            👤 লগইন
+        {/* ডার্ক মোড টগল ও অথেনটিকেশন অ্যাকশন গ্রুপ */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            style={{
+              background: darkMode ? '#334155' : '#f1f5f9',
+              border: '1px solid #cbd5e1',
+              borderRadius: '20px',
+              padding: '6px 12px',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              color: 'inherit',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+            }}
+          >
+            {darkMode ? '☀️ লাইট' : '🌙 ডার্ক'}
           </button>
-        )}
+
+          {user ? (
+            <div className="user-actions">
+              <span className="user-greeting">
+                স্বাগতম, <strong>{user.full_name}</strong>
+              </span>
+              <button className="login-button" onClick={handleLogout}>
+                লগআউট
+              </button>
+            </div>
+          ) : (
+            <button className="login-button" onClick={() => setShowAuth(true)}>
+              👤 লগইন
+            </button>
+          )}
+        </div>
       </header>
 
       <main>
-        {/* ভিউ ১: সুপার অ্যাডমিন পোর্টাল (Week 11 & 12 Complete) */}
+        {/* ভিউ ১: সুপার অ্যাডমিন পোর্টাল */}
         {currentView === 'super_admin_dashboard' && isSuperAdmin && (
           <section className="portal-section">
             <div className="portal-header">
@@ -573,7 +618,7 @@ function App() {
               </div>
             </div>
 
-            {/* Week 11: নাগরিক অ্যাকাউন্ট পর্যবেক্ষণ (Citizen Management) */}
+            {/* নাগরিক অ্যাকাউন্ট পর্যবেক্ষণ */}
             <div className="card-box" style={{ marginTop: '1.5rem' }}>
               <h3>👥 নিবন্ধিত নাগরিক অ্যাকাউন্টসমূহ ({citizensList.length})</h3>
               <div className="table-responsive">
@@ -762,7 +807,7 @@ function App() {
           </section>
         )}
 
-        {/* ভিউ ৩: ইউনিয়ন অ্যাডমিন রিভিউ ড্যাশবোর্ড (Week 9 & 10 Complete) */}
+        {/* ভিউ ৩: ইউনিয়ন অ্যাডমিন রিভিউ ড্যাশবোর্ড */}
         {currentView === 'admin_dashboard' && isUnionAdmin && (
           <section className="portal-section">
             <div className="portal-header">
@@ -777,7 +822,7 @@ function App() {
               </div>
             </div>
 
-            {/* Week 10: সার্চ ও স্ট্যাটাস ফিল্টারিং বার */}
+            {/* সার্চ ও স্ট্যাটাস ফিল্টারিং বার */}
             <div
               style={{
                 display: 'flex',
@@ -971,6 +1016,16 @@ function App() {
               </div>
             </section>
 
+            {/* জাতীয় প্রশাসনিক পরিসংখ্যান গ্রিড (৭টি ক্যাটাগরি ও বিস্তারিত ক্লিক পপআপ) */}
+            <section style={{ padding: '2rem 1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
+              <div className="smart-section-header" style={{ marginBottom: '1rem' }}>
+                <span className="sub-title">NATIONAL GOVERNANCE DATA</span>
+                <h2>বাংলাদেশ প্রশাসনিক কাঠামো ও নেটওয়ার্ক</h2>
+                <p>স্থানীয় সরকার থেকে কেন্দ্রীয় মন্ত্রণালয় পর্যন্ত ডিজিটাল কানেক্টিভিটি</p>
+              </div>
+              <GovStatsGrid />
+            </section>
+
             <section className="smart-highlights-section">
               <div className="smart-highlights-grid">
                 <div className="highlight-box">
@@ -1064,7 +1119,7 @@ function App() {
         )}
       </main>
 
-      {/* Week 10: আবেদন বিস্তারিত ও অডিট লগ ইনস্পেকশন মডাল */}
+      {/* আবেদন বিস্তারিত ও অডিট লগ ইনস্পেকশন মডাল */}
       {inspectingApp && (
         <div className="cert-modal-overlay">
           <div className="cert-modal-container" style={{ maxWidth: '640px', padding: '1.8rem' }}>
@@ -1363,6 +1418,17 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ৩-ধাপের ইউনিয়ন পরিষদ নিবন্ধন মডাল */}
+      {showUnionRegister && (
+        <UnionRegistration
+          onClose={() => setShowUnionRegister(false)}
+          onSuccess={() => {
+            setShowUnionRegister(false)
+            alert('ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তার নিবন্ধন সফল হয়েছে! এবার লগইন করুন।')
+          }}
+        />
       )}
 
       {/* পাবলিক সনদ যাচাইকরণ মডাল */}

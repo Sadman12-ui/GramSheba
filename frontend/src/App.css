@@ -1110,3 +1110,58 @@ body {
     display: none !important;
   }
 }
+/* ==========================================
+   Dark Mode System Variables & Styling
+   ========================================== */
+.dark-theme {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --card-bg: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-theme .navbar {
+  background-color: #0f172a !important;
+  border-bottom: 1px solid #334155;
+}
+
+.dark-theme .nav-link-btn {
+  color: #cbd5e1 !important;
+}
+
+.dark-theme .smart-hero {
+  background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%) !important;
+}
+
+.dark-theme .highlight-box,
+.dark-theme .smart-service-card,
+.dark-theme .card-box,
+.dark-theme .metric-card,
+.dark-theme .links-container,
+.dark-theme .auth-box {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.dark-theme .data-table th {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+}
+
+.dark-theme .data-table td {
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark-theme input,
+.dark-theme select,
+.dark-theme textarea {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #ffffff !important;
+}

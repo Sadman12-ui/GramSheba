@@ -1,86 +1,161 @@
 import os
 import random
-from datetime import datetime, timedelta
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from main import Base, User, Application, AuditLog, DATABASE_URL, hash_password
+import secrets
+from datetime import date, datetime, timedelta, timezone
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from main import (
+    AuditLog,
+    Base,
+    BirthApplication,
+    SessionLocal,
+    Union,
+    User,
+    engine,
+    password_hash,
+)
+
+# ডেটাবেস টেবিল নিশ্চিত করা
+Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
-print("Generating 50+ realistic demo records for GramSheba...")
+print("🌱 GramSheba ডেটাবেসে বাস্তবসম্মত ৫০+ ডামি রেকর্ড তৈরি হচ্ছে...")
 
-# Service types and names in Bangla
-services = [
-    ("citizenship", "নাগরিকত্ব সনদপত্র"),
-    ("trade_license", "ব্যবসা ট্রেড লাইসেন্স"),
-    ("inheritance", "ওয়ারিশান সনদপত্র"),
-    ("character", "চারিত্রিক সনদপত্র")
-]
+# ১. ইউনিয়ন চেক বা স্বয়ংক্রিয় তৈরি
+union = db.query(Union).filter(Union.code == "RAMPUR01").first()
+if not union:
+    union = Union(name="১ নং রামপুর ইউনিয়ন পরিষদ", code="RAMPUR01")
+    db.add(union)
+    db.commit()
+    db.refresh(union)
+    print(f"✓ ইউনিয়ন তৈরি হয়েছে: {union.name} (ID: {union.id})")
 
-statuses = ["Approved", "Under Review", "Pending", "Rejected"]
-names = [
-    "তানভীর হাসান", "ফারহানা আক্তার", "মেহেদী হাসান শুভ", "রুবাইয়া জাহান",
-    "সাইফুল ইসলাম", "নাজমুল হুদা", "তাসলিমা নাসরিন", "কামরুল হাসান",
-    "মারুফ আহমেদ", "আফরোজা সুলতানা", "শামীম রেজা", "নুসরাত জাহান মিম",
-    "মো. রফিকুল ইসলাম", "শাহনাজ পারভীন", "আবুল কাশেম", "শিরিন আক্তার"
-]
+# ২. ডেমো অ্যাডমিন ইউজার তৈরি
+admin = db.query(User).filter(User.email == "admin@gramsheba.gov.bd").first()
+if not admin:
+    admin = User(
+        full_name="ইউপি সচিব (প্রশাসক)",
+        email="admin@gramsheba.gov.bd",
+        phone="01811223344",
+        area="ইউনিয়ন পরিষদ কার্যালয়",
+        password_hash=password_hash.hash("Admin@123"),
+        role="union_admin",
+        union_id=union.id,
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+    print("✓ ডেমো অ্যাডমিন অ্যাকাউন্ট তৈরি হয়েছে: admin@gramsheba.gov.bd (Pass: Admin@123)")
 
-fathers = ["মো. আব্দুল কাদের", "মো. রফিকুল আলম", "মো. সামসুল হক", "মো. খোরশেদ আলম"]
-
-# Check or create default citizen
+# ৩. ডেমো সিটিজেন ইউজার তৈরি
 citizen = db.query(User).filter(User.email == "citizen@gramsheba.gov.bd").first()
 if not citizen:
     citizen = User(
         full_name="শাহ মো. সাদমান সাকিব",
         email="citizen@gramsheba.gov.bd",
-        password_hash=hash_password("Citizen@123"),
+        phone="01712345678",
+        area="রামপুর, ওয়ার্ড নং ০৪",
+        password_hash=password_hash.hash("Citizen@123"),
         role="citizen",
-        nid="19981324567890123",
-        phone="01700000001",
-        union_id="union-chandpur-01"
+        union_id=union.id,
     )
     db.add(citizen)
     db.commit()
     db.refresh(citizen)
+    print("✓ ডেমো সিটিজেন অ্যাকাউন্ট তৈরি হয়েছে: citizen@gramsheba.gov.bd (Pass: Citizen@123)")
 
-# Create 55 sample applications
-created_count = 0
+# ৪. বাস্তবসম্মত নাম ও ঠিকানার পুল
+first_names_male = ["তানভীর", "আরিফুল", "মেহেদী", "তাহমিদ", "সাকিব", "রাকিবুল", "নাজমুল", "শামীম"]
+first_names_female = ["ফারহানা", "আফরিন", "নুসরাত", "সুমাইয়া", "সাদিয়া", "মীম", "তাসলিমা", "শিরিন"]
+last_names = ["হাসান", "ইসলাম", "আক্তার", "জাহান", "হোসেন", "চৌধুরী", "সুলতানা", "খান", "রহমান"]
+
+fathers = [
+    "মো. রফিকুল ইসলাম",
+    "মো. আব্দুল কাদের",
+    "মো. শামসুল হক",
+    "মো. দেলোয়ার হোসেন",
+    "মো. খোরশেদ আলম",
+    "মো. জালাল আহমদ",
+]
+mothers = [
+    "রাবেয়া বেগম",
+    "ফাতেমা বেগম",
+    "সালেহা খাতুন",
+    "আলেয়া বেগম",
+    "মোরশেদা পারভীন",
+    "মোসা. সালেহা বেগম",
+]
+
+hospitals = [
+    "চাঁদপুর সদর হাসপাতাল",
+    "রামপুর মা ও শিশু কল্যাণ কেন্দ্র",
+    "উপজেলা স্বাস্থ্য কমপ্লেক্স",
+    "চাঁদপুর সেন্ট্রাল ক্লিনিক",
+]
+
+statuses = ["approved", "pending", "rejected"]
+
+# ৫. ৫০টি বাস্তবসম্মত আবেদন ও অডিট ট্রেইল জেনারেশন
+created_apps = 0
 for i in range(1, 56):
-    srv_code, srv_title = random.choice(services)
-    status = random.choices(statuses, weights=[60, 20, 15, 5])[0]
-    app_name = random.choice(names)
-    father_name = random.choice(fathers)
-    track_code = f"GS-2026-{srv_code[:3].upper()}-{1000 + i}"
-    days_ago = random.randint(1, 20)
-    created_at = datetime.utcnow() - timedelta(days=days_ago)
+    gender = random.choice(["male", "female"])
+    if gender == "male":
+        child_name = f"{random.choice(first_names_male)} {random.choice(last_names)}"
+    else:
+        child_name = f"{random.choice(first_names_female)} {random.choice(last_names)}"
 
-    app_obj = Application(
+    status = random.choices(statuses, weights=[65, 25, 10])[0]
+    
+    # এলোমেলো ট্র্যাকিং কোড (অফিসিয়াল ফরম্যাট)
+    track_code = f"GS-BIRTH-202611{random.randint(1, 28):02d}-{secrets.token_hex(2).upper()}"
+    
+    # এলোমেলো জন্ম তারিখ (২০১৬ থেকে ২০২৬ সালের মধ্যে)
+    random_year = random.randint(2016, 2026)
+    random_month = random.randint(1, 12)
+    random_day = random.randint(1, 28)
+    b_date = date(random_year, random_month, random_day)
+
+    ward_no = random.randint(1, 9)
+    address = f"গ্রাম: রামপুর, ওয়ার্ড নং: ০{ward_no}, ডাকঘর: রামপুর, চাঁদপুর"
+
+    # BirthApplication ইনস্ট্যান্স তৈরি
+    app_record = BirthApplication(
         tracking_id=track_code,
-        service_type=srv_code,
-        applicant_name=app_name,
-        applicant_nid=f"19{random.randint(70, 99)}{random.randint(10000000, 99999999)}",
-        applicant_phone=f"017{random.randint(10000000, 99999999)}",
-        union_id="union-chandpur-01",
-        user_id=citizen.id,
+        applicant_user_id=citizen.id,
+        union_id=union.id,
+        child_name=child_name,
+        birth_date=b_date,
+        gender=gender,
+        father_name=random.choice(fathers),
+        mother_name=random.choice(mothers),
+        birth_place=random.choice(hospitals),
+        address=address,
         status=status,
-        remarks="যাচাইবাছাই সম্পন্ন করে নিয়ম অনুযায়ী সিদ্ধান্ত নেওয়া হয়েছে।" if status == "Approved" else "অফিসার দ্বারা প্রাথমিক যাচাই চলছে।" if status == "Under Review" else None,
-        created_at=created_at
     )
-    db.add(app_obj)
+    db.add(app_record)
+    db.commit()
+    db.refresh(app_record)
 
-    # Add Audit log
+    # সংশ্লিষ্ট অডিট ট্রেইল তৈরি
+    remarks_text = (
+        "উপযুক্ত কাগজপত্র যাচাইবাছাইপূর্বক চেয়ারম্যান কর্তৃক অনুমোদন ও ডিজিটাল সনদ প্রস্তুত।"
+        if status == "approved"
+        else "ইউপি সহকারী কর্তৃক প্রাথমিক স্ক্রুটিনি ও ফিল্ড ভেরিফিকেশন চলমান।"
+        if status == "pending"
+        else "জমাকৃত তথ্যে অসঙ্গতি থাকায় আবেদনটি বাতিল করা হয়েছে।"
+    )
+
     audit = AuditLog(
-        action=f"APPLICATION_{status.upper()}",
-        performed_by="admin@gramsheba.gov.bd" if status != "Pending" else citizen.email,
-        details=f"Application {track_code} changed to {status}",
-        union_id="union-chandpur-01",
-        created_at=created_at + timedelta(hours=random.randint(2, 12))
+        application_id=app_record.id,
+        action_by_user_id=admin.id if status != "pending" else citizen.id,
+        action=status,
+        remarks=remarks_text,
     )
     db.add(audit)
-    created_count += 1
+    created_apps += 1
 
 db.commit()
-print(f"Successfully generated {created_count} realistic records with audit trails!")
 db.close()
+
+print(f"\n🎉 সফলভাবে সম্পন্ন হয়েছে!")
+print(f"📊 মোট {created_apps} টি আবেদন এবং {created_apps} টি অডিট ট্রেইল ডাটাবেসে ইনসার্ট করা হয়েছে।")
+print(f"💡 এখন অ্যাডমিন ড্যাশবোর্ড ও অ্যানালিটিক্স গ্রাফ পূর্ণাঙ্গ দেখাবে।")
