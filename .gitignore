@@ -1,20 +1,17 @@
-# Python & Virtualenv
-.venv/
-venv/
-__pycache__/
-*.pyc
-
-# Environment secrets
+# Environment & Secrets
 .env
-backend/.env
+*.env
 
-# Node & Frontend
+# Python / Backend
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.pytest_cache/
+uploads/*
+!uploads/.gitkeep
+
+# Node / Frontend
 node_modules/
-frontend/node_modules/
 dist/
-frontend/dist/
-
-# System files
-.DS_Store
-uploads/
-backend/uploads/
+.vite/
