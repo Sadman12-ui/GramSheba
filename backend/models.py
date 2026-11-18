@@ -4,14 +4,14 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     ForeignKeyConstraint,
+    JSON,
     String,
     Text,
     UniqueConstraint,
     func,
-    JSON,
-    Float,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -123,6 +123,8 @@ class AuditLog(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
 class ApplicationDocument(Base):
     __tablename__ = "application_documents"
 
@@ -142,6 +144,17 @@ class ApplicationDocument(Base):
 
 class CitizenshipApplication(Base):
     __tablename__ = "citizenship_applications"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["applicant_user_id", "union_id"],
+            ["users.id", "users.union_id"],
+            name="fk_citizenship_applications_applicant_union",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'needs_correction')",
+            name="ck_citizenship_applications_valid_status",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     tracking_id: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
@@ -155,6 +168,17 @@ class CitizenshipApplication(Base):
 
 class GeneralServiceApplication(Base):
     __tablename__ = "general_service_applications"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["applicant_user_id", "union_id"],
+            ["users.id", "users.union_id"],
+            name="fk_general_service_applications_applicant_union",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'needs_correction')",
+            name="ck_general_service_applications_valid_status",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     tracking_id: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
@@ -172,6 +196,13 @@ class GeneralServiceApplication(Base):
 
 class Complaint(Base):
     __tablename__ = "complaints"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id", "union_id"],
+            ["users.id", "users.union_id"],
+            name="fk_complaints_user_union",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     complaint_id: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-import { API_BASE } from './api'
+import API_BASE from './api'
 
 function Chatbot() {
   const [isOpen, setIsOpen] = useState(false)

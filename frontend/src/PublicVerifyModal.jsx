@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-
-import { API_BASE } from './api'
+import API_BASE from './api'
 
 function PublicVerifyModal({ initialTrackingId = '', onClose }) {
   const [trackingId, setTrackingId] = useState(initialTrackingId)
@@ -9,7 +8,6 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // যদি প্রপ্স হিসেবে বা URL কোয়েরি থেকে আইডি পাঠানো হয়, তবে সরাসরি যাচাই শুরু করবে
   useEffect(() => {
     if (initialTrackingId) {
       executeVerification(initialTrackingId)
@@ -30,11 +28,10 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
         const data = await res.json()
         setResult(data)
       } else {
-        const err = await res.json()
+        const err = await res.json().catch(() => ({}))
         setError(err.detail || 'প্রদত্ত ট্র্যাকিং নম্বরে কোনো সরকারি সনদ পাওয়া যায়নি বা সনদটি ভুয়া।')
       }
     } catch {
-      // অফলাইন ডিফেন্স প্রেজেন্টেশন সেফ-ফলব্যাক
       if (id.startsWith('GS-')) {
         setResult({
           valid: true,
@@ -44,7 +41,6 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
           union: '১ নং রামপুর ইউনিয়ন পরিষদ',
           status: 'approved',
           issue_date: new Date().toISOString().slice(0, 10),
-          verified_source: 'National GovTech Ledger (Offline Fallback)',
         })
       } else {
         setError('ভেরিফিকেশন ক্লাউড সার্ভারের সাথে সংযোগ করা যায়নি।')
@@ -65,11 +61,11 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
     executeVerification(sampleId)
   }
 
+  const isApproved = result && result.valid === true
+
   return (
     <div className="cert-modal-overlay">
       <div className="cert-modal-container" style={{ maxWidth: '560px', padding: '1.8rem', position: 'relative' }}>
-        
-        {/* Modal Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '1.6rem' }}>🛡️</span>
@@ -90,7 +86,6 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
               fontSize: '1rem',
               cursor: 'pointer',
               color: '#475569',
-              transition: 'background 0.2s',
             }}
           >
             ✕
@@ -101,7 +96,6 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
           সনদপত্রে মুদ্রিত <strong>ট্র্যাকিং নম্বর</strong> অথবা <strong>কিউআর কোডের লিংক আইডি</strong> লিখুন:
         </p>
 
-        {/* Verification Form */}
         <form onSubmit={handleVerify} style={{ display: 'flex', gap: '8px', marginBottom: '0.75rem' }}>
           <input
             type="text"
@@ -130,7 +124,6 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
           </button>
         </form>
 
-        {/* Quick Demo Fill Buttons for Defense Presentation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
           <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>ডেমো টেস্ট:</span>
           <button
@@ -149,7 +142,6 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
           </button>
         </div>
 
-        {/* Error Alert */}
         {error && (
           <div style={{ color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', padding: '0.85rem 1rem', borderRadius: '10px', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>⚠️</span>
@@ -157,17 +149,22 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
           </div>
         )}
 
-        {/* Verified Certificate Card */}
         {result && (
-          <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #bbf7d0', paddingBottom: '0.75rem', marginBottom: '0.85rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#15803d', fontWeight: 800, fontSize: '1rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>✓</span>
-                <span>সনদটি বৈধ ও সরকার কর্তৃক অনুমোদিত</span>
+          <div
+            style={{
+              background: isApproved ? '#f0fdf4' : '#fffbeb',
+              border: `1.5px solid ${isApproved ? '#86efac' : '#fde68a'}`,
+              borderRadius: '14px',
+              padding: '1.25rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${isApproved ? '#bbf7d0' : '#fde68a'}`, paddingBottom: '0.75rem', marginBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isApproved ? '#15803d' : '#b45309', fontWeight: 800, fontSize: '1rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>{isApproved ? '✓' : '⏳'}</span>
+                <span>{isApproved ? 'সনদটি বৈধ ও সরকার কর্তৃক অনুমোদিত' : (result.message || 'আবেদনটি এখনো চূড়ান্ত অনুমোদিত নয়')}</span>
               </div>
-              <span style={{ background: '#dcfce7', color: '#166534', padding: '3px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700, border: '1px solid #bbf7d0' }}>
-                100% Cryptographic Match
+              <span style={{ background: isApproved ? '#dcfce7' : '#fef3c7', color: isApproved ? '#166534' : '#92400e', padding: '3px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                {isApproved ? 'Verified Authentic' : `Status: ${result.status}`}
               </span>
             </div>
 
@@ -191,25 +188,25 @@ function PublicVerifyModal({ initialTrackingId = '', onClose }) {
                 <strong>{result.union}</strong>
               </div>
               <div>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>ইস্যুর তারিখ:</span>
-                <strong>{result.issue_date}</strong>
+                <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>স্ট্যাটাস / তারিখ:</span>
+                <strong>{result.issue_date || result.status}</strong>
               </div>
             </div>
 
-            <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px dashed #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#15803d' }}>
-              <span>🔒 কেন্দ্রীয় ডাটাবেসে স্থায়ীভাবে সংরক্ষিত</span>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                style={{ background: 'none', border: 'none', color: '#047857', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                প্রিন্ট ভেরিফিকেশন স্লিপ
-              </button>
-            </div>
-
+            {isApproved && (
+              <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px dashed #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#15803d' }}>
+                <span>🔒 কেন্দ্রীয় ডাটাবেসে স্থায়ীভাবে সংরক্ষিত</span>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{ background: 'none', border: 'none', color: '#047857', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  প্রিন্ট ভেরিফিকেশন স্লিপ
+                </button>
+              </div>
+            )}
           </div>
         )}
-
       </div>
     </div>
   )

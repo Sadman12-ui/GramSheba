@@ -10,7 +10,7 @@ function getTodayDate() {
   return `${year}-${month}-${day}`
 }
 
-import { API_BASE as API_URL } from './api'
+import API_BASE from './api'
 
 function BirthApplication({ onBack }) {
   const [loading, setLoading] = useState(false)
@@ -49,7 +49,7 @@ function BirthApplication({ onBack }) {
 
     try {
       // ধাপ ১: জন্ম নিবন্ধন আবেদন তৈরি
-      const response = await fetch(`${API_URL}/api/birth-applications`, {
+      const response = await fetch(`${API_BASE}/api/birth-applications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ function BirthApplication({ onBack }) {
         uploadData.append('document_type', documentType || 'nid_or_birth_proof')
 
         const docResponse = await fetch(
-          `${API_URL}/api/birth-applications/${generatedTrackingId}/documents`,
+          `${API_BASE}/api/birth-applications/${generatedTrackingId}/documents`,
           {
             method: 'POST',
             headers: {

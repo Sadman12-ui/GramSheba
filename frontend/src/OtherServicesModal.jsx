@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import './App.css'
-
-import { API_BASE } from './api'
+import API_BASE from './api'
 
 function OtherServicesModal({ service, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -9,14 +8,11 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
     guardian_name: '',
     nid_brn: '',
     phone: '',
-    union_name: 'বিষ্ণুপুর ইউনিয়ন পরিষদ',
-    // ট্রেড লাইসেন্সের জন্য
+    union_name: '১ নং রামপুর ইউনিয়ন পরিষদ',
     business_name: '',
     business_type: '',
-    // ওয়ারিশ সনদের জন্য
     deceased_name: '',
     heirs_count: '3',
-    // চারিত্রিক প্রত্যয়ন ও সাধারণ অভিযোগ
     reason_or_description: '',
   })
   const [loading, setLoading] = useState(false)
@@ -40,24 +36,24 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             subject: formData.business_name || 'নাগরিক সেবা সম্পর্কিত অভিযোগ/পরামর্শ',
             description: formData.reason_or_description,
             area: formData.union_name,
-            phone: formData.phone
-          })
+            phone: formData.phone,
+          }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || 'অভিযোগ জমা হয়নি।')
+        if (!res.ok) throw new Error(data.detail || 'অভিযোগ জমা দেওয়া যায়নি।')
         alert(`✅ অভিযোগ সফলভাবে নথিভুক্ত হয়েছে!\nনম্বর: ${data.complaint_id}\nসংশ্লিষ্ট ইউনিয়ন পরিষদ প্রয়োজনীয় ব্যবস্থা গ্রহণ করবে।`)
       } else {
         const res = await fetch(`${API_BASE}/api/services/apply`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             service_type: service.id,
@@ -68,20 +64,21 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
             union_name: formData.union_name,
             details: {
               business_name: formData.business_name,
+              business_type: formData.business_type,
               deceased_name: formData.deceased_name,
               heirs_count: formData.heirs_count,
-              purpose: formData.reason_or_description
-            }
-          })
+              purpose: formData.reason_or_description,
+            },
+          }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || 'আবেদন জমা হয়নি।')
+        if (!res.ok) throw new Error(data.detail || 'আবেদন জমা দেওয়া যায়নি।')
         alert(`✅ আবেদন সফলভাবে জমা হয়েছে!\nট্র্যাকিং নম্বর: ${data.tracking_id}`)
       }
-      onSuccess()
+      if (onSuccess) onSuccess()
       onClose()
-    } catch (error) {
-      alert(error.message || 'সার্ভার রেসপন্স করছে না। আবেদন জমা হয়নি; আবার চেষ্টা করুন।')
+    } catch (err) {
+      alert(`⚠️ ${err.message || 'সার্ভারের সাথে সংযোগ করা যায়নি।'}`)
     } finally {
       setLoading(false)
     }
@@ -123,7 +120,6 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
             </label>
           </div>
 
-          {/* সেবাভিত্তিক বিশেষ ফিল্ড */}
           {isTrade && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.88rem', fontWeight: 600 }}>

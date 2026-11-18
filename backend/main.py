@@ -1,12 +1,14 @@
-import os
-import secrets
+import csv
 import hashlib
 import hmac
+import io
+import os
+import secrets
 import smtplib
 import ssl
-from email.message import EmailMessage
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
 
@@ -24,18 +26,28 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pwdlib import PasswordHash
 from pydantic import BaseModel, EmailStr, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy import create_engine, text, Table, Column, Integer, String, DateTime, MetaData
+from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from models import (ApplicationDocument, AuditLog, Base, BirthApplication, Union, User, CitizenshipApplication, GeneralServiceApplication, Complaint, PaymentTransaction)
+from models import (
+    ApplicationDocument,
+    AuditLog,
+    Base,
+    BirthApplication,
+    CitizenshipApplication,
+    Complaint,
+    GeneralServiceApplication,
+    PaymentTransaction,
+    Union,
+    User,
+)
 from schemas import (
     ApplicationDocumentResponse,
     ApplicationStatusUpdate,
@@ -83,7 +95,8 @@ SessionLocal = sessionmaker(bind=engine)
 password_hash = PasswordHash.recommended()
 otp_metadata = MetaData()
 password_reset_otps = Table(
-    "password_reset_otps", otp_metadata,
+    "password_reset_otps",
+    otp_metadata,
     Column("id", Integer, primary_key=True),
     Column("email", String(255), nullable=False, index=True),
     Column("otp_hash", String(64), nullable=False),
@@ -95,6 +108,17 @@ security = HTTPBearer()
 
 # Compatibility Aliases for external scripts (seeders / tests)
 Application = BirthApplication
+
+SERVICE_TITLE_MAP = {
+    "trade": "ট্রেড লাইসেন্স সনদ",
+    "warish": "ওয়ারিশ সনদপত্র",
+    "character": "চারিত্রিক সনদপত্র",
+    "family": "পারিবারিক সনদপত্র",
+    "death": "মৃত্যু প্রত্যয়ন সনদ",
+    "voter": "নতুন ভোটার প্রত্যয়নপত্র",
+    "remarriage": "পুনঃবিবাহ না হওয়ার সনদ",
+    "agri": "কৃষি প্রত্যয়নপত্র",
+}
 
 
 def hash_password(password: str) -> str:
@@ -199,6 +223,20 @@ def require_role(*allowed_roles: str):
 # Pydantic Schemas for Requests
 # ==========================================
 
+class UnionOnboardingRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    phone: str = Field(min_length=7, max_length=20)
+    password: str = Field(min_length=8, max_length=128)
+    union_name: str = Field(min_length=2, max_length=150)
+    union_code: str = Field(min_length=3, max_length=50)
+    area: str = Field(min_length=2, max_length=150)
+    assistant_name: Optional[str] = None
+    assistant_phone: Optional[str] = None
+    assistant_nid: Optional[str] = None
+    assistant_designation: Optional[str] = None
+
+
 class CitizenshipCreate(BaseModel):
     name: str
     guardian_name: str
@@ -244,7 +282,7 @@ class ChatRequest(BaseModel):
 
 
 class GeneralServiceCreate(BaseModel):
-    service_type: str  # 'trade', 'warish', 'character'
+    service_type: str  # 'trade', 'warish', 'character', etc.
     applicant_name: str
     guardian_name: str
     nid_brn: str
@@ -260,7 +298,8 @@ class ComplaintCreate(BaseModel):
     phone: Optional[str] = ""
 
 
-# Phase 2 application records are persisted in SQLAlchemy tables.
+class ComplaintStatusUpdate(BaseModel):
+    status: str = Field(min_length=2, max_length=40)
 
 
 # ==========================================
@@ -292,8 +331,16 @@ def db_check():
         return {"status": "failed", "error": str(e)}
 
 
+@app.get("/api/public/unions")
+def list_public_unions():
+    """নাগরিক রেজিস্ট্রেশনের সময় ইউনিয়ন কোড ড্রপডাউনে দেখানোর জন্য পাবলিক এন্ডপয়েন্ট"""
+    with SessionLocal() as db:
+        unions = db.query(Union).order_by(Union.id.asc()).all()
+        return [{"id": u.id, "name": u.name, "code": u.code} for u in unions]
+
+
 # ==========================================
-# Auth & Password Recovery Endpoints
+# Auth, Union Onboarding & Password Recovery
 # ==========================================
 
 @app.post("/api/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -332,6 +379,50 @@ def register(request: Request, user_data: UserCreate):
             )
 
 
+@app.post("/api/union-register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+def register_union_and_admin(request: Request, data: UnionOnboardingRequest):
+    """৩-ধাপের ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তা নিবন্ধনের জন্য ডেডিকেটেড এন্ডপয়েন্ট"""
+    email = str(data.email).strip().lower()
+    union_code = data.union_code.strip().upper()
+    union_name = data.union_name.strip()
+
+    with SessionLocal() as db:
+        existing_user = db.query(User).filter(User.email == email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="এই ইমেইলটি ইতিমধ্যে নিবন্ধিত রয়েছে।",
+            )
+
+        union = db.query(Union).filter(Union.code == union_code).first()
+        if not union:
+            union = Union(name=union_name, code=union_code)
+            db.add(union)
+            db.flush()
+
+        try:
+            admin_user = User(
+                full_name=data.full_name.strip(),
+                email=email,
+                phone=data.phone.strip(),
+                area=data.area.strip(),
+                password_hash=password_hash.hash(data.password),
+                union_id=union.id,
+                role="union_admin",
+            )
+            db.add(admin_user)
+            db.commit()
+            db.refresh(admin_user)
+            return admin_user
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="ইউনিয়ন বা কর্মকর্তার নিবন্ধন সম্পন্ন করা যায়নি।",
+            )
+
+
 @app.post("/api/login")
 @limiter.limit("10/minute")
 def login(request: Request, credentials: LoginRequest):
@@ -359,7 +450,6 @@ def login(request: Request, credentials: LoginRequest):
         }
 
 
-# Password recovery: single-use OTP stored as a hash and delivered through SMTP.
 def _send_password_otp(email: str, otp: str) -> None:
     host, username, password = (os.getenv(k) for k in ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD"))
     sender = os.getenv("SMTP_FROM", username or "")
@@ -561,6 +651,82 @@ def get_birth_certificate(
         }
 
 
+@app.get("/api/certificates/{tracking_id}")
+def get_official_certificate_data(
+    tracking_id: str,
+    current_user=Depends(get_current_user),
+):
+    """নাগরিকত্ব ও সাধারণ সেবার অনুমোদিত সনদের প্রিন্ট প্রিভিউ ডেটা"""
+    search_id = tracking_id.strip().upper()
+    role = current_user.get("role")
+
+    with SessionLocal() as db:
+        citizen_app = (
+            db.query(CitizenshipApplication)
+            .filter(CitizenshipApplication.tracking_id.ilike(search_id))
+            .first()
+        )
+        if citizen_app:
+            is_owner = citizen_app.applicant_user_id == current_user["id"]
+            is_super = role == "super_admin"
+            is_union = role in {"union_admin", "union_officer"} and citizen_app.union_id == current_user.get("union_id")
+            if not (is_owner or is_super or is_union):
+                raise HTTPException(status_code=403, detail="এই সনদ দেখার অনুমতি আপনার নেই।")
+            if citizen_app.status != "approved":
+                raise HTTPException(status_code=400, detail="সনদ শুধুমাত্র অনুমোদিত (approved) আবেদনের জন্য প্রযোজ্য।")
+
+            union = db.query(Union).filter(Union.id == citizen_app.union_id).first()
+            d = citizen_app.applicant_data or {}
+            return {
+                "certificateType": "নাগরিকত্ব সনদপত্র",
+                "trackingId": citizen_app.tracking_id,
+                "unionName": d.get("union_name") or (union.name if union else "ইউনিয়ন পরিষদ"),
+                "upazila": d.get("upazila", "চাঁদপুর সদর"),
+                "district": d.get("district", "চাঁদপুর"),
+                "holderName": d.get("name", ""),
+                "fatherName": d.get("guardian_name", ""),
+                "motherName": d.get("mother_name", "প্রযোজ্য নয়"),
+                "nidNumber": d.get("nid_brn", ""),
+                "village": d.get("village", ""),
+                "wardNo": d.get("ward_no", "০১"),
+                "issueDate": date.today().isoformat(),
+                "chairmanName": "ইউপি চেয়ারম্যান (ডিজিটাল স্বাক্ষর)",
+            }
+
+        gen_app = (
+            db.query(GeneralServiceApplication)
+            .filter(GeneralServiceApplication.tracking_id.ilike(search_id))
+            .first()
+        )
+        if gen_app:
+            is_owner = gen_app.applicant_user_id == current_user["id"]
+            is_super = role == "super_admin"
+            is_union = role in {"union_admin", "union_officer"} and gen_app.union_id == current_user.get("union_id")
+            if not (is_owner or is_super or is_union):
+                raise HTTPException(status_code=403, detail="এই সনদ দেখার অনুমতি আপনার নেই।")
+            if gen_app.status != "approved":
+                raise HTTPException(status_code=400, detail="সনদ শুধুমাত্র অনুমোদিত (approved) আবেদনের জন্য প্রযোজ্য।")
+
+            union = db.query(Union).filter(Union.id == gen_app.union_id).first()
+            return {
+                "certificateType": SERVICE_TITLE_MAP.get(gen_app.service_type, "সরকারি প্রত্যয়ন সনদ"),
+                "trackingId": gen_app.tracking_id,
+                "unionName": union.name if union else "ইউনিয়ন পরিষদ",
+                "upazila": "সদর উপজেলা",
+                "district": "চাঁদপুর",
+                "holderName": gen_app.applicant_name,
+                "fatherName": gen_app.guardian_name,
+                "motherName": "জাতীয় ডাটাবেস অনুযায়ী",
+                "nidNumber": gen_app.nid_brn,
+                "village": (gen_app.details or {}).get("business_name") or "ইউনিয়ন পরিষদ এলাকা",
+                "wardNo": "০১",
+                "issueDate": date.today().isoformat(),
+                "chairmanName": "ইউপি চেয়ারম্যান (ডিজিটাল স্বাক্ষর)",
+            }
+
+    raise HTTPException(status_code=404, detail="সনদ পাওয়া যায়নি।")
+
+
 # ==========================================
 # Citizenship Applications & Verification
 # ==========================================
@@ -581,19 +747,44 @@ def apply_citizenship(data: CitizenshipCreate, current_user=Depends(get_current_
         if not payment:
             raise HTTPException(status_code=400, detail="পেমেন্ট যাচাই করা যায়নি বা ইতিমধ্যে ব্যবহার হয়েছে।")
         row = CitizenshipApplication(
-            tracking_id=tracking_id, applicant_user_id=current_user["id"], union_id=user.union_id,
+            tracking_id=tracking_id,
+            applicant_user_id=current_user["id"],
+            union_id=user.union_id,
             applicant_data=data.model_dump(exclude={"payment_transaction_id"}),
-            payment_transaction_id=data.payment_transaction_id, status="pending")
+            payment_transaction_id=data.payment_transaction_id,
+            status="pending",
+        )
         payment.application_tracking_id = tracking_id
-        db.add(row); db.commit(); db.refresh(row)
-        return {"message": "নাগরিকত্ব সনদ আবেদন সফলভাবে গৃহীত হয়েছে।", "tracking_id": tracking_id, "id": row.id, "status": row.status}
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {
+            "message": "নাগরিকত্ব সনদ আবেদন সফলভাবে গৃহীত হয়েছে।",
+            "tracking_id": tracking_id,
+            "id": row.id,
+            "status": row.status,
+        }
 
 
 @app.get("/api/citizenship-applications/my")
 def my_citizenship_applications(current_user=Depends(get_current_user)):
     with SessionLocal() as db:
-        rows = db.query(CitizenshipApplication).filter(CitizenshipApplication.applicant_user_id == current_user["id"]).order_by(CitizenshipApplication.created_at.desc()).all()
-        return [{"id": r.id, "tracking_id": r.tracking_id, "status": r.status, "created_at": r.created_at.isoformat(), **(r.applicant_data or {})} for r in rows]
+        rows = (
+            db.query(CitizenshipApplication)
+            .filter(CitizenshipApplication.applicant_user_id == current_user["id"])
+            .order_by(CitizenshipApplication.created_at.desc())
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "tracking_id": r.tracking_id,
+                "status": r.status,
+                "created_at": r.created_at.isoformat(),
+                **(r.applicant_data or {}),
+            }
+            for r in rows
+        ]
 
 
 # Public QR Verification (Zero-Login Public Access)
@@ -611,11 +802,17 @@ def public_verify_certificate(tracking_id: str):
             union = db.query(Union).filter(Union.id == birth_app.union_id).first()
             is_approved = birth_app.status == "approved"
             if not is_approved:
-                return {"valid": False, "type": "জন্ম নিবন্ধন আবেদন", "tracking_id": birth_app.tracking_id,
-                        "beneficiary": birth_app.child_name, "union": union.name if union else "ইউনিয়ন পরিষদ",
-                        "status": birth_app.status, "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।"}
+                return {
+                    "valid": False,
+                    "type": "জন্ম নিবন্ধন আবেদন",
+                    "tracking_id": birth_app.tracking_id,
+                    "beneficiary": birth_app.child_name,
+                    "union": union.name if union else "ইউনিয়ন পরিষদ",
+                    "status": birth_app.status,
+                    "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।",
+                }
             return {
-                "valid": is_approved,
+                "valid": True,
                 "type": "জন্ম নিবন্ধন সনদ",
                 "tracking_id": birth_app.tracking_id,
                 "beneficiary": birth_app.child_name,
@@ -624,18 +821,61 @@ def public_verify_certificate(tracking_id: str):
                 "issue_date": str(birth_app.birth_date),
             }
 
-    with SessionLocal() as db:
-        citizen_app = db.query(CitizenshipApplication).filter(CitizenshipApplication.tracking_id == search_id).first()
+        citizen_app = (
+            db.query(CitizenshipApplication)
+            .filter(CitizenshipApplication.tracking_id.ilike(search_id))
+            .first()
+        )
         if citizen_app:
             union = db.query(Union).filter(Union.id == citizen_app.union_id).first()
             data = citizen_app.applicant_data or {}
             if citizen_app.status != "approved":
-                return {"valid": False, "type": "নাগরিকত্ব সনদ", "tracking_id": citizen_app.tracking_id,
-                        "beneficiary": data.get("name", ""), "union": union.name if union else "ইউনিয়ন পরিষদ",
-                        "status": citizen_app.status, "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।"}
-            return {"valid": True, "type": "নাগরিকত্ব সনদ", "tracking_id": citizen_app.tracking_id,
-                    "beneficiary": data.get("name", ""), "union": union.name if union else "ইউনিয়ন পরিষদ",
-                    "status": citizen_app.status, "issue_date": citizen_app.created_at.date().isoformat()}
+                return {
+                    "valid": False,
+                    "type": "নাগরিকত্ব সনদ",
+                    "tracking_id": citizen_app.tracking_id,
+                    "beneficiary": data.get("name", ""),
+                    "union": union.name if union else "ইউনিয়ন পরিষদ",
+                    "status": citizen_app.status,
+                    "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।",
+                }
+            return {
+                "valid": True,
+                "type": "নাগরিকত্ব সনদ",
+                "tracking_id": citizen_app.tracking_id,
+                "beneficiary": data.get("name", ""),
+                "union": union.name if union else "ইউনিয়ন পরিষদ",
+                "status": citizen_app.status,
+                "issue_date": citizen_app.created_at.date().isoformat(),
+            }
+
+        gen_app = (
+            db.query(GeneralServiceApplication)
+            .filter(GeneralServiceApplication.tracking_id.ilike(search_id))
+            .first()
+        )
+        if gen_app:
+            union = db.query(Union).filter(Union.id == gen_app.union_id).first()
+            cert_title = SERVICE_TITLE_MAP.get(gen_app.service_type, "সরকারি প্রত্যয়ন সনদ")
+            if gen_app.status != "approved":
+                return {
+                    "valid": False,
+                    "type": cert_title,
+                    "tracking_id": gen_app.tracking_id,
+                    "beneficiary": gen_app.applicant_name,
+                    "union": union.name if union else "ইউনিয়ন পরিষদ",
+                    "status": gen_app.status,
+                    "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।",
+                }
+            return {
+                "valid": True,
+                "type": cert_title,
+                "tracking_id": gen_app.tracking_id,
+                "beneficiary": gen_app.applicant_name,
+                "union": union.name if union else "ইউনিয়ন পরিষদ",
+                "status": gen_app.status,
+                "issue_date": gen_app.created_at.date().isoformat(),
+            }
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -648,12 +888,20 @@ def public_verify_certificate(tracking_id: str):
 # ==========================================
 
 @app.post("/api/ocr/scan-document")
-async def scan_document_ocr(file: UploadFile = File(...)):
-    ext = Path(file.filename).suffix.lower()
+@limiter.limit("10/minute")
+async def scan_document_ocr(request: Request, file: UploadFile = File(...)):
+    ext = Path(file.filename or "").suffix.lower()
     if ext not in {".jpg", ".jpeg", ".png", ".pdf"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="শুধুমাত্র ছবি (JPG, PNG) বা PDF আপলোড করুন।",
+        )
+
+    content = await file.read(5 * 1024 * 1024 + 1)
+    if not content or len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="ফাইলের আকার সর্বোচ্চ ৫ MB হতে পারবে।",
         )
 
     return {
@@ -690,7 +938,13 @@ def process_mock_payment(req: MockPaymentRequest, current_user=Depends(get_curre
         raise HTTPException(status_code=400, detail="পেমেন্টের তথ্য সঠিক নয়।")
     txn_id = f"TRX{req.gateway.upper()}{secrets.token_hex(4).upper()}"
     with SessionLocal() as db:
-        db.add(PaymentTransaction(transaction_id=txn_id, user_id=current_user["id"], gateway=req.gateway, amount=req.amount, status="PAID"))
+        db.add(PaymentTransaction(
+            transaction_id=txn_id,
+            user_id=current_user["id"],
+            gateway=req.gateway,
+            amount=req.amount,
+            status="PAID",
+        ))
         db.commit()
     return {
         "success": True,
@@ -819,6 +1073,174 @@ def get_application_audit_logs(
         )
 
 
+@app.get("/api/admin/citizenship-applications")
+def list_admin_citizenship_applications(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: dict = Depends(require_role("union_admin", "super_admin")),
+):
+    with SessionLocal() as db:
+        query = db.query(CitizenshipApplication)
+        if current_user["role"] == "union_admin":
+            query = query.filter(CitizenshipApplication.union_id == current_user["union_id"])
+        if status and status.strip():
+            query = query.filter(CitizenshipApplication.status == status.strip().lower())
+        rows = query.order_by(CitizenshipApplication.id.desc()).all()
+        results = [
+            {
+                "id": r.id,
+                "tracking_id": r.tracking_id,
+                "union_id": r.union_id,
+                "status": r.status,
+                "created_at": r.created_at.isoformat(),
+                **(r.applicant_data or {}),
+            }
+            for r in rows
+        ]
+        if search and search.strip():
+            term = search.strip().lower()
+            results = [
+                item for item in results
+                if term in item["tracking_id"].lower() or term in str(item.get("name", "")).lower()
+            ]
+        return results
+
+
+@app.put("/api/admin/citizenship-applications/{application_id}/status")
+def update_citizenship_application_status(
+    application_id: int,
+    status_data: ApplicationStatusUpdate,
+    current_user: dict = Depends(require_role("union_admin", "super_admin")),
+):
+    with SessionLocal() as db:
+        app_row = (
+            db.query(CitizenshipApplication)
+            .filter(CitizenshipApplication.id == application_id)
+            .first()
+        )
+        if not app_row:
+            raise HTTPException(status_code=404, detail="নাগরিকত্ব আবেদন পাওয়া যায়নি।")
+        if current_user["role"] == "union_admin" and app_row.union_id != current_user["union_id"]:
+            raise HTTPException(status_code=403, detail="অন্য ইউনিয়নের আবেদনের স্ট্যাটাস পরিবর্তন করা যাবে না।")
+
+        app_row.status = status_data.status
+        db.commit()
+        db.refresh(app_row)
+        return {
+            "id": app_row.id,
+            "tracking_id": app_row.tracking_id,
+            "status": app_row.status,
+            **(app_row.applicant_data or {}),
+        }
+
+
+@app.get("/api/admin/general-services")
+def list_admin_general_services(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: dict = Depends(require_role("union_admin", "super_admin")),
+):
+    with SessionLocal() as db:
+        query = db.query(GeneralServiceApplication)
+        if current_user["role"] == "union_admin":
+            query = query.filter(GeneralServiceApplication.union_id == current_user["union_id"])
+        if status and status.strip():
+            query = query.filter(GeneralServiceApplication.status == status.strip().lower())
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.filter(
+                (GeneralServiceApplication.tracking_id.ilike(term))
+                | (GeneralServiceApplication.applicant_name.ilike(term))
+            )
+        rows = query.order_by(GeneralServiceApplication.id.desc()).all()
+        return [
+            {
+                "id": r.id,
+                "tracking_id": r.tracking_id,
+                "service_type": r.service_type,
+                "applicant_name": r.applicant_name,
+                "guardian_name": r.guardian_name,
+                "nid_brn": r.nid_brn,
+                "phone": r.phone,
+                "details": r.details,
+                "status": r.status,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
+
+
+@app.put("/api/admin/general-services/{application_id}/status")
+def update_general_service_status(
+    application_id: int,
+    status_data: ApplicationStatusUpdate,
+    current_user: dict = Depends(require_role("union_admin", "super_admin")),
+):
+    with SessionLocal() as db:
+        app_row = (
+            db.query(GeneralServiceApplication)
+            .filter(GeneralServiceApplication.id == application_id)
+            .first()
+        )
+        if not app_row:
+            raise HTTPException(status_code=404, detail="আবেদন পাওয়া যায়নি।")
+        if current_user["role"] == "union_admin" and app_row.union_id != current_user["union_id"]:
+            raise HTTPException(status_code=403, detail="অন্য ইউনিয়নের আবেদনের স্ট্যাটাস পরিবর্তন করা যাবে না।")
+
+        app_row.status = status_data.status
+        db.commit()
+        db.refresh(app_row)
+        return {
+            "id": app_row.id,
+            "tracking_id": app_row.tracking_id,
+            "service_type": app_row.service_type,
+            "applicant_name": app_row.applicant_name,
+            "status": app_row.status,
+        }
+
+
+@app.get("/api/admin/complaints")
+def list_admin_complaints(
+    current_user: dict = Depends(require_role("union_admin", "super_admin")),
+):
+    with SessionLocal() as db:
+        query = db.query(Complaint)
+        if current_user["role"] == "union_admin":
+            query = query.filter(Complaint.union_id == current_user["union_id"])
+        rows = query.order_by(Complaint.id.desc()).all()
+        return [
+            {
+                "id": r.id,
+                "complaint_id": r.complaint_id,
+                "subject": r.subject,
+                "description": r.description,
+                "area": r.area,
+                "phone": r.phone,
+                "status": r.status,
+                "submitted_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
+
+
+@app.put("/api/admin/complaints/{complaint_id}/status")
+def update_complaint_status(
+    complaint_id: int,
+    status_data: ComplaintStatusUpdate,
+    current_user: dict = Depends(require_role("union_admin", "super_admin")),
+):
+    with SessionLocal() as db:
+        row = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="অভিযোগ পাওয়া যায়নি।")
+        if current_user["role"] == "union_admin" and row.union_id != current_user["union_id"]:
+            raise HTTPException(status_code=403, detail="অনুমতি নেই।")
+        row.status = status_data.status.strip()
+        db.commit()
+        db.refresh(row)
+        return {"id": row.id, "complaint_id": row.complaint_id, "status": row.status}
+
+
 # ==========================================
 # Document Upload & Verification
 # ==========================================
@@ -861,8 +1283,12 @@ def upload_application_document(
         content = file.file.read(5 * 1024 * 1024 + 1)
         if not content or len(content) > 5 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="ফাইল সর্বোচ্চ ৫ MB হতে পারবে।")
-        signatures = {".pdf": content.startswith(b"%PDF-"), ".jpg": content.startswith(b"\xff\xd8\xff"),
-                      ".jpeg": content.startswith(b"\xff\xd8\xff"), ".png": content.startswith(b"\x89PNG\r\n\x1a\n")}
+        signatures = {
+            ".pdf": content.startswith(b"%PDF-"),
+            ".jpg": content.startswith(b"\xff\xd8\xff"),
+            ".jpeg": content.startswith(b"\xff\xd8\xff"),
+            ".png": content.startswith(b"\x89PNG\r\n\x1a\n"),
+        }
         if not signatures.get(ext, False):
             raise HTTPException(status_code=400, detail="ফাইলের প্রকৃত ধরন Extension-এর সঙ্গে মেলে না।")
         safe_doc_type = "".join(ch for ch in document_type.strip() if ch.isalnum() or ch in "-_ ")[:50]
@@ -1020,26 +1446,45 @@ def get_system_analytics(current_user: dict = Depends(require_role("super_admin"
         total_users = db.query(User).count()
         total_citizens = db.query(User).filter(User.role == "citizen").count()
         total_admins = db.query(User).filter(User.role.in_(["union_admin", "super_admin"])).count()
-        total_applications = db.query(BirthApplication).count()
-        pending = db.query(BirthApplication).filter(BirthApplication.status == "pending").count()
-        approved = db.query(BirthApplication).filter(BirthApplication.status == "approved").count()
-        rejected = db.query(BirthApplication).filter(BirthApplication.status == "rejected").count()
+
+        b_total = db.query(BirthApplication).count()
+        c_total = db.query(CitizenshipApplication).count()
+        g_total = db.query(GeneralServiceApplication).count()
+
+        b_pend = db.query(BirthApplication).filter(BirthApplication.status == "pending").count()
+        c_pend = db.query(CitizenshipApplication).filter(CitizenshipApplication.status == "pending").count()
+        g_pend = db.query(GeneralServiceApplication).filter(GeneralServiceApplication.status == "pending").count()
+
+        b_appr = db.query(BirthApplication).filter(BirthApplication.status == "approved").count()
+        c_appr = db.query(CitizenshipApplication).filter(CitizenshipApplication.status == "approved").count()
+        g_appr = db.query(GeneralServiceApplication).filter(GeneralServiceApplication.status == "approved").count()
+
+        b_rej = db.query(BirthApplication).filter(BirthApplication.status == "rejected").count()
+        c_rej = db.query(CitizenshipApplication).filter(CitizenshipApplication.status == "rejected").count()
+        g_rej = db.query(GeneralServiceApplication).filter(GeneralServiceApplication.status == "rejected").count()
 
         return {
             "total_unions": total_unions,
             "total_users": total_users,
             "total_citizens": total_citizens,
             "total_admins": total_admins,
-            "total_applications": total_applications,
-            "pending_applications": pending,
-            "approved_applications": approved,
-            "rejected_applications": rejected,
+            "total_applications": b_total + c_total + g_total,
+            "pending_applications": b_pend + c_pend + g_pend,
+            "approved_applications": b_appr + c_appr + g_appr,
+            "rejected_applications": b_rej + c_rej + g_rej,
         }
 
 
 # ==========================================
-# Phase 3: Reports & CSV Export
+# Phase 3: Reports & Safe CSV Export
 # ==========================================
+
+def _sanitize_csv_field(val: object) -> str:
+    text_val = str(val if val is not None else "")
+    if text_val.startswith(("=", "+", "-", "@")):
+        return f"'{text_val}"
+    return text_val
+
 
 @app.get("/api/admin/reports/export-csv")
 def export_applications_csv(
@@ -1051,16 +1496,24 @@ def export_applications_csv(
             query = query.filter(BirthApplication.union_id == current_user["union_id"])
 
         apps = query.order_by(BirthApplication.id.desc()).all()
-        csv_lines = ["ID,Tracking ID,Child Name,Father Name,Mother Name,Gender,Birth Date,Status"]
+        output = io.StringIO()
+        writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(["ID", "Tracking ID", "Child Name", "Father Name", "Mother Name", "Gender", "Birth Date", "Status"])
         for a in apps:
-            csv_lines.append(
-                f'{a.id},"{a.tracking_id}","{a.child_name}","{a.father_name}","{a.mother_name}","{a.gender}","{a.birth_date}","{a.status}"'
-            )
-        csv_content = "\n".join(csv_lines)
+            writer.writerow([
+                a.id,
+                _sanitize_csv_field(a.tracking_id),
+                _sanitize_csv_field(a.child_name),
+                _sanitize_csv_field(a.father_name),
+                _sanitize_csv_field(a.mother_name),
+                _sanitize_csv_field(a.gender),
+                _sanitize_csv_field(a.birth_date),
+                _sanitize_csv_field(a.status),
+            ])
 
         return Response(
-            content=csv_content,
-            media_type="text/csv",
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": "attachment; filename=gramsheba_applications_report.csv"},
         )
 
@@ -1092,7 +1545,7 @@ FAQ_KNOWLEDGE_BASE = [
     },
     {
         "keywords": ["সনদ", "ডাউনলোড", "প্রিন্ট", "সার্টিফিকেট", "যাচাই", "qr", "sonod", "certificate", "download", "verify"],
-        "reply": "অনুমোদনের পর 'সনদ দেখুন' বোতাম চেপে অফিশিয়াল BDRIS ফরম্যাটে সনদ প্রিন্ট বা ডাউনলোড করতে পারবেন। সনদে থাকা QR কোড দিয়ে যে কেউ অনলাইন ভেরিফিকেশন করতে পারে।"
+        "reply": "অনুমোদনের পর 'সনদ দেখুন' বোতাম চেপে অফিশিয়াল ফরম্যাটে সনদ প্রিন্ট বা ডাউনলোড করতে পারবেন। সনদে থাকা QR কোড দিয়ে যে কেউ অনলাইন ভেরিফিকেশন করতে পারে।"
     }
 ]
 
@@ -1107,6 +1560,8 @@ def bangla_chat_assistant(chat_data: ChatRequest):
     return {
         "reply": "আমি বুঝতে পেরেছি! আপনি জন্ম নিবন্ধন, নাগরিকত্ব সনদ, ফি (fee), ট্র্যাকিং (tracking) বা সনদ যাচাই নিয়ে প্রশ্ন করতে পারেন।"
     }
+
+
 # =========================================================
 # Phase 2: General Services, Complaints & Dashboard Stats
 # =========================================================
@@ -1118,34 +1573,100 @@ def apply_general_service(data: GeneralServiceCreate, current_user=Depends(get_c
         raise HTTPException(status_code=400, detail="সেবার ধরন সঠিক নয়।")
     tracking_id = f"GS-{data.service_type.upper()}-{datetime.now(timezone.utc):%Y%m%d}-{secrets.token_hex(3).upper()}"
     with SessionLocal() as db:
-        row = GeneralServiceApplication(tracking_id=tracking_id, applicant_user_id=current_user["id"], union_id=current_user["union_id"],
-            service_type=data.service_type, applicant_name=data.applicant_name, guardian_name=data.guardian_name, nid_brn=data.nid_brn,
-            phone=data.phone, details=data.details, status="pending")
-        db.add(row); db.commit(); db.refresh(row)
-        return {"message": "আবেদন সফলভাবে গৃহীত হয়েছে", "tracking_id": tracking_id, "application": {"id": row.id, "tracking_id": row.tracking_id, "service_type": row.service_type, "status": row.status, "created_at": row.created_at.isoformat()}}
+        row = GeneralServiceApplication(
+            tracking_id=tracking_id,
+            applicant_user_id=current_user["id"],
+            union_id=current_user["union_id"],
+            service_type=data.service_type,
+            applicant_name=data.applicant_name.strip(),
+            guardian_name=data.guardian_name.strip(),
+            nid_brn=data.nid_brn.strip(),
+            phone=data.phone.strip(),
+            details=data.details,
+            status="pending",
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {
+            "message": "আবেদন সফলভাবে গৃহীত হয়েছে",
+            "tracking_id": tracking_id,
+            "application": {
+                "id": row.id,
+                "tracking_id": row.tracking_id,
+                "service_type": row.service_type,
+                "status": row.status,
+                "created_at": row.created_at.isoformat(),
+            },
+        }
 
 
 @app.get("/api/services/my")
 def get_my_general_services(current_user=Depends(get_current_user)):
     with SessionLocal() as db:
-        rows = db.query(GeneralServiceApplication).filter(GeneralServiceApplication.applicant_user_id == current_user["id"]).order_by(GeneralServiceApplication.created_at.desc()).all()
-        return [{"id": r.id, "tracking_id": r.tracking_id, "service_type": r.service_type, "applicant_name": r.applicant_name, "status": r.status, "details": r.details, "created_at": r.created_at.isoformat()} for r in rows]
+        rows = (
+            db.query(GeneralServiceApplication)
+            .filter(GeneralServiceApplication.applicant_user_id == current_user["id"])
+            .order_by(GeneralServiceApplication.created_at.desc())
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "tracking_id": r.tracking_id,
+                "service_type": r.service_type,
+                "applicant_name": r.applicant_name,
+                "guardian_name": r.guardian_name,
+                "nid_brn": r.nid_brn,
+                "status": r.status,
+                "details": r.details,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
 
 
 @app.post("/api/complaints", status_code=status.HTTP_201_CREATED)
 def submit_complaint(data: ComplaintCreate, current_user=Depends(get_current_user)):
     complaint_id = f"CMP-{datetime.now(timezone.utc):%Y%m%d}-{secrets.token_hex(3).upper()}"
     with SessionLocal() as db:
-        row = Complaint(complaint_id=complaint_id, user_id=current_user["id"], union_id=current_user["union_id"], subject=data.subject, description=data.description, area=data.area, phone=data.phone or current_user.get("phone", ""))
-        db.add(row); db.commit(); db.refresh(row)
+        row = Complaint(
+            complaint_id=complaint_id,
+            user_id=current_user["id"],
+            union_id=current_user["union_id"],
+            subject=data.subject.strip(),
+            description=data.description.strip(),
+            area=data.area.strip(),
+            phone=(data.phone or current_user.get("phone", "")).strip(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
         return {"message": "অভিযোগ/পরামর্শ সফলভাবে নিবন্ধিত হয়েছে", "complaint_id": complaint_id}
 
 
 @app.get("/api/complaints/my")
 def get_my_complaints(current_user=Depends(get_current_user)):
     with SessionLocal() as db:
-        rows = db.query(Complaint).filter(Complaint.user_id == current_user["id"]).order_by(Complaint.created_at.desc()).all()
-        return [{"id": r.id, "complaint_id": r.complaint_id, "subject": r.subject, "description": r.description, "area": r.area, "status": r.status, "submitted_at": r.created_at.isoformat()} for r in rows]
+        rows = (
+            db.query(Complaint)
+            .filter(Complaint.user_id == current_user["id"])
+            .order_by(Complaint.created_at.desc())
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "complaint_id": r.complaint_id,
+                "subject": r.subject,
+                "description": r.description,
+                "area": r.area,
+                "status": r.status,
+                "submitted_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
+
 
 @app.get("/api/citizen/dashboard-stats")
 def get_citizen_dashboard_stats(current_user=Depends(get_current_user)):
@@ -1156,6 +1677,19 @@ def get_citizen_dashboard_stats(current_user=Depends(get_current_user)):
         complaints = db.query(Complaint).filter(Complaint.user_id == current_user["id"]).all()
         rows = birth + citizenship + general
         states = [r.status for r in rows]
-        return {"total_applications": len(rows), "pending_count": states.count("pending"), "approved_count": states.count("approved"),
-                "rejected_count": states.count("rejected"), "citizenship_count": len(citizenship), "general_service_count": len(general),
-                "complaint_count": len(complaints), "notifications": [{"id": 1, "text": f"আপনার {states.count('pending')} টি আবেদন বর্তমানে যাচাই চলছে।", "time": "সিস্টেম"}]}
+        return {
+            "total_applications": len(rows),
+            "pending_count": states.count("pending"),
+            "approved_count": states.count("approved"),
+            "rejected_count": states.count("rejected"),
+            "citizenship_count": len(citizenship),
+            "general_service_count": len(general),
+            "complaint_count": len(complaints),
+            "notifications": [
+                {
+                    "id": 1,
+                    "text": f"আপনার {states.count('pending')} টি আবেদন বর্তমানে যাচাই চলছে এবং {states.count('approved')} টি অনুমোদিত হয়েছে।",
+                    "time": "সিস্টেম আপডেট",
+                }
+            ],
+        }

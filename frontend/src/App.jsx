@@ -5,15 +5,18 @@ import BirthApplication from './BirthApplication'
 import CitizenshipApplication from './CitizenshipApplication'
 import PublicVerifyModal from './PublicVerifyModal'
 import OtherServicesModal from './OtherServicesModal'
-import UnionRegistration from './UnionRegistration'
-import GovStatsGrid from './GovStatsGrid'
+import OfficialCertificate from './OfficialCertificate'
+import CitizenAccessibility from './CitizenAccessibility'
+import AnalyticsDashboard from './AnalyticsDashboard'
+import UnionRegistration from './components/UnionRegistration'
+import GovStatsGrid from './components/GovStatsGrid'
 import './App.css'
 
-import { API_BASE } from './api'
+import API_BASE from './api'
 
 const certificateServices = [
   { id: 'birth', title: 'জন্ম নিবন্ধন', price: 'মূল্য: BDT — সরকারি ফি প্রযোজ্য', icon: '📄' },
-  { id: 'citizenship', title: 'নাগরিকত্ব সনদ', price: 'মূল্য: BDT — প্রযোজ্য ফি', icon: '🪪' },
+  { id: 'citizenship', title: 'নাগরিকত্ব সনদ', price: 'মূল্য: ৫০ BDT — সরকারি ফি', icon: '🪪' },
   { id: 'trade', title: 'ট্রেড লাইসেন্স', price: 'মূল্য: BDT — প্রযোজ্য ফি', icon: '📜' },
   { id: 'family', title: 'পারিবারিক সনদ', price: 'মূল্য: BDT — প্রযোজ্য ফি', icon: '👨‍👩‍👧‍👦' },
   { id: 'warish', title: 'ওয়ারিশ সনদ', price: 'মূল্য: BDT — প্রযোজ্য ফি', icon: '👥' },
@@ -33,7 +36,6 @@ function getSavedUser() {
 }
 
 function App() {
-  // ডার্ক মোড স্টেট ও টগল হ্যান্ডলার
   const [darkMode, setDarkMode] = useState(
     localStorage.getItem('gramsheba_theme') === 'dark'
   )
@@ -57,19 +59,21 @@ function App() {
 
   const [currentView, setCurrentView] = useState('home')
   const [myApplications, setMyApplications] = useState([])
+  const [myComplaints, setMyComplaints] = useState([])
   const [adminApplications, setAdminApplications] = useState([])
+  const [adminTab, setAdminTab] = useState('birth') // 'birth' | 'citizenship' | 'general' | 'complaints'
+
   const [selectedCertificate, setSelectedCertificate] = useState(null)
+  const [selectedOfficialCert, setSelectedOfficialCert] = useState(null)
   const [loading, setLoading] = useState(false)
   const [statusActionId, setStatusActionId] = useState(null)
   const [remarksInput, setRemarksInput] = useState('')
 
-  // Phase 3: অ্যাডমিন সার্চ, ফিল্টারিং ও ডিটেইলস ইনস্পেকশন স্টেট
   const [adminSearch, setAdminSearch] = useState('')
   const [adminStatusFilter, setAdminStatusFilter] = useState('')
   const [inspectingApp, setInspectingApp] = useState(null)
   const [inspectingLogs, setInspectingLogs] = useState([])
 
-  // Phase 3: সুপার অ্যাডমিন স্টেট ও সিটিজেন তালিকা
   const [analytics, setAnalytics] = useState(null)
   const [unionsList, setUnionsList] = useState([])
   const [citizensList, setCitizensList] = useState([])
@@ -98,28 +102,54 @@ function App() {
     setShowCitizenshipForm(false)
     setCurrentView('home')
     setSelectedCertificate(null)
+    setSelectedOfficialCert(null)
   }
 
+  // নাগরিকের সকল ধরনের আবেদন (জন্ম, নাগরিকত্ব, সাধারণ সেবা ও অভিযোগ) একসাথে লোড করা
   async function fetchMyApplications() {
     const token = sessionStorage.getItem('gramsheba_token')
     if (!token) return
     setLoading(true)
     try {
       const headers = { Authorization: `Bearer ${token}` }
-      const [birthRes, citizenshipRes, servicesRes] = await Promise.all([
+      const [birthRes, citRes, genRes, cmpRes] = await Promise.all([
         fetch(`${API_BASE}/api/birth-applications/my`, { headers }),
         fetch(`${API_BASE}/api/citizenship-applications/my`, { headers }),
         fetch(`${API_BASE}/api/services/my`, { headers }),
+        fetch(`${API_BASE}/api/complaints/my`, { headers }),
       ])
-      for (const response of [birthRes, citizenshipRes, servicesRes]) {
-        if (!response.ok) throw new Error('আবেদন তালিকা লোড করা যায়নি।')
-      }
-      const [birthRows, citizenshipRows, serviceRows] = await Promise.all([birthRes.json(), citizenshipRes.json(), servicesRes.json()])
-      setMyApplications([
-        ...birthRows,
-        ...citizenshipRows.map((row) => ({ ...row, child_name: row.name || 'নাগরিকত্ব সনদ আবেদন', father_name: row.guardian_name || '' })),
-        ...serviceRows.map((row) => ({ ...row, child_name: row.applicant_name || row.service_type, father_name: 'সাধারণ সেবা আবেদন' })),
-      ])
+
+      const birthList = birthRes.ok ? await birthRes.json() : []
+      const citList = citRes.ok ? await citRes.json() : []
+      const genList = genRes.ok ? await genRes.json() : []
+      const cmpList = cmpRes.ok ? await cmpRes.json() : []
+
+      const unified = [
+        ...birthList.map((b) => ({
+          ...b,
+          app_category: 'birth',
+          service_label: 'জন্ম নিবন্ধন সনদ',
+          display_name: b.child_name,
+          sub_label: `পিতা: ${b.father_name}`,
+        })),
+        ...citList.map((c) => ({
+          ...c,
+          app_category: 'citizenship',
+          service_label: 'নাগরিকত্ব সনদ',
+          display_name: c.name || 'নাগরিক আবেদনকারী',
+          sub_label: `পিতা/অভিভাবক: ${c.guardian_name || ''}`,
+        })),
+        ...genList.map((g) => ({
+          ...g,
+          app_category: 'general',
+          service_label: `সেবা (${g.service_type.toUpperCase()})`,
+          display_name: g.applicant_name,
+          sub_label: `অভিভাবক: ${g.guardian_name}`,
+        })),
+      ]
+
+      setMyApplications(unified)
+      setMyComplaints(cmpList)
     } catch (err) {
       console.error(err)
     } finally {
@@ -135,23 +165,26 @@ function App() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) setDashboardStats(await res.json())
-    } catch (error) {
-      console.error('Dashboard load failed:', error)
-      setDashboardStats(null)
+    } catch (err) {
+      console.error(err)
     }
   }
 
-  // Phase 3: অ্যাডমিন আবেদন তালিকা (সার্চ ও ফিল্টার প্যারামিটারসহ)
   async function fetchAdminApplications() {
     const token = sessionStorage.getItem('gramsheba_token')
     if (!token) return
     setLoading(true)
     try {
-      let url = `${API_BASE}/api/admin/birth-applications?`
-      if (adminStatusFilter) url += `status=${adminStatusFilter}&`
-      if (adminSearch.trim()) url += `search=${encodeURIComponent(adminSearch.trim())}`
+      let endpoint = '/api/admin/birth-applications'
+      if (adminTab === 'citizenship') endpoint = '/api/admin/citizenship-applications'
+      else if (adminTab === 'general') endpoint = '/api/admin/general-services'
+      else if (adminTab === 'complaints') endpoint = '/api/admin/complaints'
 
-      const res = await fetch(url, {
+      const params = new URLSearchParams()
+      if (adminStatusFilter && adminTab !== 'complaints') params.set('status', adminStatusFilter)
+      if (adminSearch.trim() && adminTab !== 'complaints') params.set('search', adminSearch.trim())
+
+      const res = await fetch(`${API_BASE}${endpoint}?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) setAdminApplications(await res.json())
@@ -162,7 +195,6 @@ function App() {
     }
   }
 
-  // Phase 3: সুপার অ্যাডমিন ডাটা ও সিটিজেন তালিকা
   async function fetchSuperAdminData() {
     const token = sessionStorage.getItem('gramsheba_token')
     if (!token) return
@@ -190,11 +222,13 @@ function App() {
     }
   }
 
-  // Phase 3: আবেদন বিস্তারিত ও অডিট লগ ইনস্পেকশন
   async function handleInspectApp(app) {
     setInspectingApp(app)
     const token = sessionStorage.getItem('gramsheba_token')
-    if (!token) return
+    if (!token || adminTab !== 'birth') {
+      setInspectingLogs([])
+      return
+    }
     try {
       const res = await fetch(`${API_BASE}/api/admin/birth-applications/${app.id}/audit-logs`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -206,7 +240,6 @@ function App() {
     }
   }
 
-  // Phase 3: CSV রিপোর্ট ডাউনলোড
   async function handleDownloadReport() {
     const token = sessionStorage.getItem('gramsheba_token')
     if (!token) return
@@ -263,43 +296,68 @@ function App() {
     }
   }
 
-  async function handleViewCertificate(trackingId) {
+  async function handleViewCertificate(appItem) {
     const token = sessionStorage.getItem('gramsheba_token')
     if (!token) return
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/birth-applications/${trackingId}/certificate`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      if (res.ok) {
-        setSelectedCertificate(await res.json())
-      } else {
-        const err = await res.json()
-        alert(err.detail || 'সনদটি লোড করা সম্ভব হয়নি।')
+
+    if (appItem.app_category === 'birth') {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/birth-applications/${appItem.tracking_id}/certificate`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (res.ok) {
+          setSelectedCertificate(await res.json())
+        } else {
+          const err = await res.json()
+          alert(err.detail || 'সনদটি লোড করা সম্ভব হয়নি।')
+        }
+      } catch {
+        alert('সার্ভারের সাথে যোগাযোগ করা যায়নি।')
       }
-    } catch {
-      alert('সার্ভারের সাথে যোগাযোগ করা যায়নি।')
+    } else {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/certificates/${appItem.tracking_id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (res.ok) {
+          setSelectedOfficialCert(await res.json())
+        } else {
+          const err = await res.json()
+          alert(err.detail || 'সনদটি লোড করা সম্ভব হয়নি।')
+        }
+      } catch {
+        alert('সার্ভারের সাথে যোগাযোগ করা যায়নি।')
+      }
     }
   }
 
   async function handleUpdateStatus(applicationId, newStatus) {
     const token = sessionStorage.getItem('gramsheba_token')
     if (!token) return
+
+    let endpoint = `/api/admin/birth-applications/${applicationId}/status`
+    if (adminTab === 'citizenship') endpoint = `/api/admin/citizenship-applications/${applicationId}/status`
+    else if (adminTab === 'general') endpoint = `/api/admin/general-services/${applicationId}/status`
+    else if (adminTab === 'complaints') endpoint = `/api/admin/complaints/${applicationId}/status`
+
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/birth-applications/${applicationId}/status`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            status: newStatus,
-            remarks: remarksInput || (newStatus === 'approved' ? 'অনুমোদিত' : 'তথ্য অসম্পূর্ণ'),
-          }),
-        }
-      )
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(
+          adminTab === 'complaints'
+            ? { status: newStatus }
+            : {
+                status: newStatus,
+                remarks: remarksInput || (newStatus === 'approved' ? 'অনুমোদিত' : 'তথ্য অসম্পূর্ণ'),
+              }
+        ),
+      })
       if (res.ok) {
         setStatusActionId(null)
         setRemarksInput('')
@@ -323,7 +381,7 @@ function App() {
     }
     if (currentView === 'admin_dashboard') fetchAdminApplications()
     if (currentView === 'super_admin_dashboard') fetchSuperAdminData()
-  }, [currentView, adminStatusFilter])
+  }, [currentView, adminStatusFilter, adminTab])
 
   function openBirthApplication() {
     if (user) setShowBirthForm(true)
@@ -408,7 +466,6 @@ function App() {
 
   return (
     <div className={`app ${darkMode ? 'dark-theme' : ''}`}>
-      {/* নেভিগেশন বার */}
       <header className="navbar">
         <a
           className="brand"
@@ -430,7 +487,7 @@ function App() {
             প্রথম পাতা
           </button>
 
-          <a href="#services" className="nav-link-btn">
+          <a href="#services" className="nav-link-btn" onClick={() => setCurrentView('home')}>
             সেবাসমূহ
           </a>
 
@@ -443,7 +500,6 @@ function App() {
             🔍 সনদ যাচাই
           </button>
 
-          {/* ৩-ধাপের ইউনিয়ন পরিষদ নিবন্ধন বাটন */}
           <button
             type="button"
             className="nav-link-btn"
@@ -484,7 +540,6 @@ function App() {
           )}
         </nav>
 
-        {/* ডার্ক মোড টগল ও অথেনটিকেশন অ্যাকশন গ্রুপ */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             type="button"
@@ -498,7 +553,6 @@ function App() {
               cursor: 'pointer',
               color: 'inherit',
               fontWeight: 600,
-              transition: 'all 0.2s',
             }}
           >
             {darkMode ? '☀️ লাইট' : '🌙 ডার্ক'}
@@ -515,7 +569,7 @@ function App() {
             </div>
           ) : (
             <button className="login-button" onClick={() => setShowAuth(true)}>
-              👤 লগইন
+              👤 লগইন / নিবন্ধন
             </button>
           )}
         </div>
@@ -563,6 +617,8 @@ function App() {
                   <div>অনুমোদিত: <strong>{analytics.approved_applications}</strong></div>
                   <div>বাতিলকৃত: <strong>{analytics.rejected_applications}</strong></div>
                 </div>
+
+                <AnalyticsDashboard stats={analytics} />
               </>
             )}
 
@@ -622,7 +678,6 @@ function App() {
               </div>
             </div>
 
-            {/* নাগরিক অ্যাকাউন্ট পর্যবেক্ষণ */}
             <div className="card-box" style={{ marginTop: '1.5rem' }}>
               <h3>👥 নিবন্ধিত নাগরিক অ্যাকাউন্টসমূহ ({citizensList.length})</h3>
               <div className="table-responsive">
@@ -681,7 +736,14 @@ function App() {
                   className="primary-button"
                   onClick={() => setShowBirthForm(true)}
                 >
-                  + নতুন আবেদন
+                  + জন্ম নিবন্ধন আবেদন
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => setShowCitizenshipForm(true)}
+                >
+                  + নাগরিকত্ব সনদ
                 </button>
               </div>
             </div>
@@ -707,28 +769,6 @@ function App() {
               </div>
             )}
 
-            {dashboardStats?.notifications && dashboardStats.notifications.length > 0 && (
-              <div
-                style={{
-                  background: '#f8fafc',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '12px',
-                  padding: '0.8rem 1.2rem',
-                  marginBottom: '1.5rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                  <span>🔔</span>
-                  <strong>আপডেট বার্তা:</strong>
-                  <span>{dashboardStats.notifications[0].text}</span>
-                </div>
-                <small style={{ color: '#64748b' }}>{dashboardStats.notifications[0].time}</small>
-              </div>
-            )}
-
             {loading ? (
               <p>আবেদনসমূহ লোড হচ্ছে...</p>
             ) : myApplications.length === 0 ? (
@@ -748,22 +788,21 @@ function App() {
                   <thead>
                     <tr>
                       <th>ট্র্যাকিং আইডি</th>
-                      <th>সেবা ও নাগরিকের নাম</th>
+                      <th>সেবার ধরন</th>
+                      <th>আবেদনকারী / সুবিধাভোগী</th>
                       <th>বর্তমান অবস্থা</th>
-                      <th>অফিসারের মন্তব্য</th>
                       <th>অ্যাকশন</th>
                     </tr>
                   </thead>
                   <tbody>
                     {myApplications.map((app) => (
-                      <tr key={app.id}>
+                      <tr key={app.tracking_id}>
+                        <td><code>{app.tracking_id}</code></td>
+                        <td><strong>{app.service_label}</strong></td>
                         <td>
-                          <code>{app.tracking_id}</code>
-                        </td>
-                        <td>
-                          <strong>{app.child_name || 'নাগরিক সেবা'}</strong>
+                          <strong>{app.display_name}</strong>
                           <br />
-                          <small>{app.father_name || 'যাচাইকৃত আবেদন'}</small>
+                          <small>{app.sub_label}</small>
                         </td>
                         <td>
                           <span className={`status-pill status-${app.status}`}>
@@ -775,21 +814,14 @@ function App() {
                           </span>
                         </td>
                         <td>
-                          <span style={{ fontSize: '0.85rem', color: '#475569' }}>
-                            {app.status === 'approved'
-                              ? 'যাচাই সম্পন্ন, ডিজিটাল সনদ প্রস্তুত।'
-                              : 'কাগজপত্র পর্যালোচনায় রয়েছে।'}
-                          </span>
-                        </td>
-                        <td>
                           <div style={{ display: 'flex', gap: '6px' }}>
                             {app.status === 'approved' && (
                               <button
                                 type="button"
                                 className="action-btn cert-btn"
-                                onClick={() => handleViewCertificate(app.tracking_id)}
+                                onClick={() => handleViewCertificate(app)}
                               >
-                                📜 সনদ
+                                📜 সনদ দেখুন
                               </button>
                             )}
                             <button
@@ -808,11 +840,39 @@ function App() {
                 </table>
               </div>
             )}
+
+            {myComplaints.length > 0 && (
+              <div className="card-box" style={{ marginTop: '1.5rem' }}>
+                <h3>📢 আপনার দাখিলকৃত অভিযোগ ও পরামর্শ ({myComplaints.length})</h3>
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>অভিযোগ আইডি</th>
+                        <th>বিষয়</th>
+                        <th>বিবরণ</th>
+                        <th>স্ট্যাটাস</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {myComplaints.map((c) => (
+                        <tr key={c.id}>
+                          <td><code>{c.complaint_id}</code></td>
+                          <td><strong>{c.subject}</strong></td>
+                          <td>{c.description}</td>
+                          <td><span className="status-pill status-pending">{c.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
         {/* ভিউ ৩: ইউনিয়ন অ্যাডমিন রিভিউ ড্যাশবোর্ড */}
-        {currentView === 'admin_dashboard' && isUnionAdmin && (
+        {currentView === 'admin_dashboard' && (isUnionAdmin || isSuperAdmin) && (
           <section className="portal-section">
             <div className="portal-header">
               <h2>🛡️ ইউনিয়ন পরিষদ আবেদন পর্যালোচনা ও অ্যাকশন প্যানেল</h2>
@@ -826,79 +886,100 @@ function App() {
               </div>
             </div>
 
-            {/* সার্চ ও স্ট্যাটাস ফিল্টারিং বার */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '12px',
-                marginBottom: '1.2rem',
-                flexWrap: 'wrap',
-                background: '#f8fafc',
-                padding: '1rem',
-                borderRadius: '12px',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: '220px' }}>
-                <input
-                  type="text"
-                  placeholder="🔍 ট্র্যাকিং নম্বর বা নাম লিখে খুঁজুন..."
-                  value={adminSearch}
-                  onChange={(e) => setAdminSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchAdminApplications()}
-                  style={{
-                    width: '100%',
-                    padding: '0.65rem 0.9rem',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                  }}
-                />
-              </div>
-
-              <div style={{ minWidth: '160px' }}>
-                <select
-                  value={adminStatusFilter}
-                  onChange={(e) => setAdminStatusFilter(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.65rem',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                  }}
+            {/* অ্যাডমিন সেবা ক্যাটাগরি ট্যাব */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              {[
+                { key: 'birth', label: '📄 জন্ম নিবন্ধন আবেদন' },
+                { key: 'citizenship', label: '🪪 নাগরিকত্ব সনদ আবেদন' },
+                { key: 'general', label: '📜 ট্রেড লাইসেন্স ও অন্যান্য সেবা' },
+                { key: 'complaints', label: '📢 নাগরিক অভিযোগসমূহ' },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => { setAdminTab(t.key); setStatusActionId(null); }}
+                  className={adminTab === t.key ? 'primary-button' : 'secondary-btn'}
+                  style={{ padding: '0.55rem 1rem', fontSize: '0.88rem' }}
                 >
-                  <option value="">সকল স্ট্যাটাস (All)</option>
-                  <option value="pending">প্রক্রিয়াধীন (Pending)</option>
-                  <option value="approved">অনুমোদিত (Approved)</option>
-                  <option value="rejected">বাতিলকৃত (Rejected)</option>
-                </select>
-              </div>
-
-              <button
-                type="button"
-                className="primary-button"
-                onClick={fetchAdminApplications}
-                style={{ padding: '0.65rem 1.2rem' }}
-              >
-                ফিল্টার প্রয়োগ
-              </button>
+                  {t.label}
+                </button>
+              ))}
             </div>
 
+            {adminTab !== 'complaints' && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  marginBottom: '1.2rem',
+                  flexWrap: 'wrap',
+                  background: '#f8fafc',
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: '220px' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 ট্র্যাকিং নম্বর বা নাম লিখে খুঁজুন..."
+                    value={adminSearch}
+                    onChange={(e) => setAdminSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && fetchAdminApplications()}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.9rem',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '0.9rem',
+                    }}
+                  />
+                </div>
+
+                <div style={{ minWidth: '160px' }}>
+                  <select
+                    value={adminStatusFilter}
+                    onChange={(e) => setAdminStatusFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <option value="">সকল স্ট্যাটাস (All)</option>
+                    <option value="pending">প্রক্রিয়াধীন (Pending)</option>
+                    <option value="approved">অনুমোদিত (Approved)</option>
+                    <option value="rejected">বাতিলকৃত (Rejected)</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={fetchAdminApplications}
+                  style={{ padding: '0.65rem 1.2rem' }}
+                >
+                  ফিল্টার প্রয়োগ
+                </button>
+              </div>
+            )}
+
             {loading ? (
-              <p>আবেদনসমূহ লোড হচ্ছে...</p>
+              <p>তথ্য লোড হচ্ছে...</p>
             ) : adminApplications.length === 0 ? (
-              <p>কোনো আবেদন খুঁজে পাওয়া যায়নি।</p>
+              <p>এই ক্যাটাগরিতে কোনো আবেদন বা রেকর্ড পাওয়া যায়নি।</p>
             ) : (
               <div className="table-responsive">
                 <table className="data-table">
                   <thead>
                     <tr>
                       <th>আইডি / ট্র্যাকিং</th>
-                      <th>সন্তানের নাম</th>
-                      <th>পিতা / মাতা</th>
+                      <th>আবেদনকারী / বিবরণ</th>
+                      <th>অভিভাবক / বিস্তারিত</th>
                       <th>বর্তমান অবস্থা</th>
-                      <th>ডিটেইলস ও অ্যাকশন</th>
+                      <th>অ্যাকশন</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -906,29 +987,44 @@ function App() {
                       <tr key={app.id}>
                         <td>
                           #{app.id} <br />
-                          <code>{app.tracking_id}</code>
+                          <code>{app.tracking_id || app.complaint_id}</code>
                         </td>
                         <td>
-                          <strong>{app.child_name}</strong> <br />
-                          <small>{app.gender === 'male' ? 'ছেলে' : 'মেয়ে'} | {app.birth_date}</small>
+                          <strong>{app.child_name || app.name || app.applicant_name || app.subject}</strong>
+                          <br />
+                          <small>{app.birth_date || app.service_type || app.phone || ''}</small>
                         </td>
-                        <td>{app.father_name} <br /> {app.mother_name}</td>
+                        <td>
+                          {app.father_name || app.guardian_name || app.description || ''}
+                          {app.mother_name ? <><br />{app.mother_name}</> : null}
+                        </td>
                         <td>
                           <span className={`status-pill status-${app.status}`}>{app.status}</span>
                         </td>
                         <td>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              className="secondary-btn"
-                              style={{ padding: '4px 10px', fontSize: '0.82rem' }}
-                              onClick={() => handleInspectApp(app)}
-                            >
-                              👁️ বিস্তারিত
-                            </button>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {adminTab === 'birth' && (
+                              <button
+                                type="button"
+                                className="secondary-btn"
+                                style={{ padding: '4px 10px', fontSize: '0.82rem' }}
+                                onClick={() => handleInspectApp(app)}
+                              >
+                                👁️ বিস্তারিত
+                              </button>
+                            )}
 
-                            {statusActionId === app.id ? (
-                              <div style={{ display: 'flex', gap: '4px' }}>
+                            {adminTab === 'complaints' ? (
+                              <button
+                                type="button"
+                                className="primary-button"
+                                style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                                onClick={() => handleUpdateStatus(app.id, 'নিষ্পত্তিকৃত')}
+                              >
+                                ✓ নিষ্পত্তি করুন
+                              </button>
+                            ) : statusActionId === app.id ? (
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                 <input
                                   type="text"
                                   placeholder="মন্তব্য লিখুন"
@@ -1020,7 +1116,6 @@ function App() {
               </div>
             </section>
 
-            {/* জাতীয় প্রশাসনিক পরিসংখ্যান গ্রিড (৭টি ক্যাটাগরি ও বিস্তারিত ক্লিক পপআপ) */}
             <section style={{ padding: '2rem 1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
               <div className="smart-section-header" style={{ marginBottom: '1rem' }}>
                 <span className="sub-title">NATIONAL GOVERNANCE DATA</span>
@@ -1091,6 +1186,11 @@ function App() {
               </div>
             </section>
 
+            {/* ডিজিটাল বাংলা ভয়েস সহকারী ও সরকারি ফি ক্যালকুলেটর */}
+            <section style={{ padding: '1rem 1.5rem 2.5rem', maxWidth: '1200px', margin: '0 auto' }}>
+              <CitizenAccessibility />
+            </section>
+
             <section className="smart-links-section">
               <div className="links-container">
                 <div className="links-header">
@@ -1148,7 +1248,6 @@ function App() {
               <div style={{ gridColumn: 'span 2' }}>জন্মস্থান ও ঠিকানা: {inspectingApp.birth_place}, {inspectingApp.address}</div>
             </div>
 
-            {/* অডিট লগ ট্রেইল */}
             <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '1.2rem' }}>
               <h4 style={{ margin: '0 0 8px', fontSize: '0.92rem', color: '#334155' }}>🔒 অডিট ট্রেইল ও কার্যক্রম হিস্ট্রি ({inspectingLogs.length})</h4>
               {inspectingLogs.length === 0 ? (
@@ -1164,7 +1263,6 @@ function App() {
               )}
             </div>
 
-            {/* অ্যাডমিন কুইক অ্যাকশন বাটন */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 type="button"
@@ -1211,7 +1309,7 @@ function App() {
               <div className="bdris-top-grid">
                 <div className="bdris-qr-box">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=https://gramsheba.gov.bd/verify/${selectedCertificate.tracking_id}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(`${API_BASE}/api/public/verify/${selectedCertificate.tracking_id}`)}`}
                     alt="QR Code"
                   />
                 </div>
@@ -1237,17 +1335,15 @@ function App() {
               <div className="bdris-meta-bar">
                 <div className="meta-col">
                   <span>Date of Registration</span>
-                  <strong>{selectedCertificate.issue_date || '23/09/2024'}</strong>
+                  <strong>{selectedCertificate.issue_date}</strong>
                 </div>
                 <div className="meta-col center">
                   <span>Birth Registration Number</span>
-                  <strong className="brn-number">
-                    {selectedCertificate.certificate_number || '20241511813129309'}
-                  </strong>
+                  <strong className="brn-number">{selectedCertificate.certificate_number}</strong>
                 </div>
                 <div className="meta-col right">
                   <span>Date of Issuance</span>
-                  <strong>{selectedCertificate.issue_date || '23/09/2024'}</strong>
+                  <strong>{selectedCertificate.issue_date}</strong>
                 </div>
               </div>
 
@@ -1260,7 +1356,6 @@ function App() {
                   <span className="lbl">Sex</span>
                   <span className="val">: {selectedCertificate.gender === 'male' ? 'Male / পুরুষ' : 'Female / মহিলা'}</span>
                 </div>
-
                 <div className="detail-line full">
                   <span className="lbl">In Word</span>
                   <span className="val">: {selectedCertificate.birth_date} (Official Record)</span>
@@ -1280,7 +1375,6 @@ function App() {
                     <span className="f-val">: {selectedCertificate.child_name}</span>
                   </div>
                 </div>
-
                 <div className="info-row">
                   <div className="info-cell-bn">
                     <span className="f-title">মাতা</span>
@@ -1291,18 +1385,6 @@ function App() {
                     <span className="f-val">: {selectedCertificate.mother_name}</span>
                   </div>
                 </div>
-
-                <div className="info-row">
-                  <div className="info-cell-bn">
-                    <span className="f-title">মাতার জাতীয়তা</span>
-                    <span className="f-val">: বাংলাদেশী</span>
-                  </div>
-                  <div className="info-cell-en">
-                    <span className="f-title">Nationality</span>
-                    <span className="f-val">: Bangladeshi</span>
-                  </div>
-                </div>
-
                 <div className="info-row">
                   <div className="info-cell-bn">
                     <span className="f-title">পিতা</span>
@@ -1313,18 +1395,6 @@ function App() {
                     <span className="f-val">: {selectedCertificate.father_name}</span>
                   </div>
                 </div>
-
-                <div className="info-row">
-                  <div className="info-cell-bn">
-                    <span className="f-title">পিতার জাতীয়তা</span>
-                    <span className="f-val">: বাংলাদেশী</span>
-                  </div>
-                  <div className="info-cell-en">
-                    <span className="f-title">Nationality</span>
-                    <span className="f-val">: Bangladeshi</span>
-                  </div>
-                </div>
-
                 <div className="info-row">
                   <div className="info-cell-bn">
                     <span className="f-title">জন্মস্থান</span>
@@ -1335,7 +1405,6 @@ function App() {
                     <span className="f-val">: {selectedCertificate.birth_place}</span>
                   </div>
                 </div>
-
                 <div className="info-row">
                   <div className="info-cell-bn">
                     <span className="f-title">স্থায়ী ঠিকানা</span>
@@ -1353,23 +1422,24 @@ function App() {
                   <div className="sig-line"></div>
                   <strong>Seal & Signature</strong>
                   <span>Assistant to Registrar</span>
-                  <small>(Preparation, Verification)</small>
                 </div>
-
                 <div className="sig-block right">
                   <div className="sig-line"></div>
                   <strong>Seal & Signature</strong>
-                  <span>Registrar</span>
-                  <small>Union Parishad</small>
+                  <span>Registrar / Chairman</span>
                 </div>
-              </div>
-
-              <div className="bdris-footer-note">
-                This certificate is digitally generated from GramSheba GovTech Portal, and to verify this certificate, please scan the QR Code.
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* নাগরিকত্ব ও সাধারণ সনদ প্রিভিউ মডাল */}
+      {selectedOfficialCert && (
+        <OfficialCertificate
+          certificateData={selectedOfficialCert}
+          onClose={() => setSelectedOfficialCert(null)}
+        />
       )}
 
       {/* অন্যান্য সেবা মডাল */}
@@ -1400,7 +1470,7 @@ function App() {
             </div>
             <div style={{ fontSize: '0.9rem', marginBottom: '1.2rem' }}>
               <div>ট্র্যাকিং আইডি: <code>{trackingTimelineApp.tracking_id}</code></div>
-              <div>আবেদনকারী: <strong>{trackingTimelineApp.child_name || user?.full_name}</strong></div>
+              <div>আবেদনকারী: <strong>{trackingTimelineApp.display_name || trackingTimelineApp.child_name || user?.full_name}</strong></div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '2px solid #10b981', paddingLeft: '1rem', marginLeft: '6px' }}>
               <div>
@@ -1430,20 +1500,18 @@ function App() {
           onClose={() => setShowUnionRegister(false)}
           onSuccess={() => {
             setShowUnionRegister(false)
-            alert('ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তার নিবন্ধন সফল হয়েছে! এবার লগইন করুন।')
+            alert('অভিনন্দন! ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তার নিবন্ধন সফল হয়েছে। এখন লগইন করুন।')
+            setShowAuth(true)
           }}
         />
       )}
 
-      {/* পাবলিক সনদ যাচাইকরণ মডাল */}
       {showVerifyModal && (
         <PublicVerifyModal onClose={() => setShowVerifyModal(false)} />
       )}
 
-      {/* ডিজিটাল এআই চ্যাটবট */}
       <Chatbot />
 
-      {/* ফুটার */}
       <footer className="smart-footer">
         <div className="footer-content">
           <div className="footer-brand">

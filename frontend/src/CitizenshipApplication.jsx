@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import PaymentModal from './PaymentModal'
 import './CitizenshipApplication.css'
 
-import { API_BASE } from './api'
+import API_BASE from './api'
 
 // বাংলাদেশের প্রশাসনিক তথ্য
 const BANGLADESH_GEO_DATA = {
@@ -491,7 +491,7 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
     setShowPayment(true)
   }
 
-  // ৫. পেমেন্ট সফল হওয়ার পর ব্যাকএন্ডে আবেদন সেভ
+    // ৫. পেমেন্ট সফল হওয়ার পর ব্যাকএন্ডে আবেদন সেভ (CitizenshipApplication.jsx এর ভেতরে)
   async function handlePaymentSuccess(payInfo) {
     setShowPayment(false)
     setLoading(true)
@@ -517,13 +517,16 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'আবেদন জমা দেওয়া যায়নি।')
+      if (!res.ok) {
+        throw new Error(data.detail || 'আবেদন সংরক্ষণ করা যায়নি।')
+      }
+
       localStorage.removeItem('gramsheba_citizenship_draft')
 
       alert(
         lang === 'bn'
-          ? `🎉 পেমেন্ট সফল (${payInfo.gateway.toUpperCase()})!\nট্রানজ্যাকশন আইডি: ${payInfo.txnId}\nআবেদন ট্র্যাকিং নম্বর: ${data.tracking_id || 'GS-CITIZEN-PROD'}`
-          : `🎉 Payment Successful (${payInfo.gateway.toUpperCase()})!\nTransaction ID: ${payInfo.txnId}\nTracking ID: ${data.tracking_id || 'GS-CITIZEN-PROD'}`
+          ? `🎉 পেমেন্ট ও আবেদন সফল (${payInfo.gateway.toUpperCase()})!\nট্রানজ্যাকশন আইডি: ${payInfo.txnId}\nআবেদন ট্র্যাকিং নম্বর: ${data.tracking_id}`
+          : `🎉 Payment & Application Successful (${payInfo.gateway.toUpperCase()})!\nTransaction ID: ${payInfo.txnId}\nTracking ID: ${data.tracking_id}`
       )
 
       if (onSubmitSuccess) {
@@ -531,8 +534,8 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
       } else {
         onBack()
       }
-    } catch (error) {
-      alert(error.message || (lang === 'bn' ? 'আবেদন জমা হয়নি। আপনার ড্রাফট সংরক্ষিত আছে; আবার চেষ্টা করুন।' : 'Application was not submitted. Your draft is saved; please retry.'))
+    } catch (err) {
+      alert(err.message || 'সার্ভারে আবেদন জমা দিতে সমস্যা হয়েছে।')
     } finally {
       setLoading(false)
     }
