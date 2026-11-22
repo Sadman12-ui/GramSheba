@@ -816,6 +816,11 @@ def get_official_certificate_data(
 
 @app.post("/api/citizenship-applications", status_code=status.HTTP_201_CREATED)
 def apply_citizenship(data: CitizenshipCreate, current_user=Depends(get_current_user)):
+    if current_user.get("role") != "citizen":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="অ্যাডমিন অ্যাকাউন্ট থেকে নাগরিক সেবার জন্য আবেদন করা যাবে না। অনুগ্রহ করে নাগরিক অ্যাকাউন্ট ব্যবহার করুন।",
+        )
     tracking_id = f"GS-CITIZEN-{datetime.now(timezone.utc):%Y%m%d}-{secrets.token_hex(4).upper()}"
     with SessionLocal() as db:
         user = db.query(User).filter(User.id == current_user["id"]).first()
@@ -1771,6 +1776,11 @@ def bangla_chat_assistant(request: Request, chat_data: ChatRequest):
 
 @app.post("/api/services/apply", status_code=status.HTTP_201_CREATED)
 def apply_general_service(data: GeneralServiceCreate, current_user=Depends(get_current_user)):
+    if current_user.get("role") != "citizen":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="অ্যাডমিন অ্যাকাউন্ট থেকে নাগরিক সেবার জন্য আবেদন করা যাবে না। অনুগ্রহ করে নাগরিক অ্যাকাউন্ট ব্যবহার করুন।",
+        )
     allowed_types = {"trade", "warish", "character", "family", "death", "voter", "remarriage", "agri"}
     if data.service_type not in allowed_types:
         raise HTTPException(status_code=400, detail="সেবার ধরন সঠিক নয়।")
@@ -1831,6 +1841,11 @@ def get_my_general_services(current_user=Depends(get_current_user)):
 
 @app.post("/api/complaints", status_code=status.HTTP_201_CREATED)
 def submit_complaint(data: ComplaintCreate, current_user=Depends(get_current_user)):
+    if current_user.get("role") != "citizen":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="অ্যাডমিন অ্যাকাউন্ট থেকে নাগরিক সেবার জন্য আবেদন করা যাবে না। অনুগ্রহ করে নাগরিক অ্যাকাউন্ট ব্যবহার করুন।",
+        )
     complaint_id = f"CMP-{datetime.now(timezone.utc):%Y%m%d}-{secrets.token_hex(3).upper()}"
     with SessionLocal() as db:
         row = Complaint(

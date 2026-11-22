@@ -383,6 +383,7 @@ function App() {
   }, [currentView, adminStatusFilter, adminTab])
 
   function openBirthApplication() {
+    if (isUnionAdmin || isSuperAdmin) { alert('অ্যাডমিন অ্যাকাউন্ট থেকে নাগরিক সেবার জন্য আবেদন করা যাবে না।'); return }
     if (user) setShowBirthForm(true)
     else {
       setShowBirthForm(true)
@@ -391,6 +392,7 @@ function App() {
   }
 
   function openCitizenshipApplication() {
+    if (isUnionAdmin || isSuperAdmin) { alert('অ্যাডমিন অ্যাকাউন্ট থেকে নাগরিক সেবার জন্য আবেদন করা যাবে না।'); return }
     if (user) setShowCitizenshipForm(true)
     else {
       setShowCitizenshipForm(true)
@@ -486,9 +488,11 @@ function App() {
             প্রথম পাতা
           </button>
 
-          <a href="#services" className="nav-link-btn" onClick={() => setCurrentView('home')}>
-            সেবাসমূহ
-          </a>
+          {!isUnionAdmin && !isSuperAdmin && (
+            <a href="#services" className="nav-link-btn" onClick={() => setCurrentView('home')}>
+              সেবাসমূহ
+            </a>
+          )}
 
           <button
             type="button"
@@ -1154,6 +1158,10 @@ function App() {
                     key={srv.id}
                     className="smart-service-card"
                     onClick={() => {
+                      if (isUnionAdmin || isSuperAdmin) {
+                        alert('অ্যাডমিন অ্যাকাউন্ট থেকে নাগরিক সেবার জন্য আবেদন করা যাবে না। আবেদন পরিচালনা ও ট্র্যাক করতে আপনার অ্যাডমিন ড্যাশবোর্ড ব্যবহার করুন।')
+                        return
+                      }
                       if (srv.id === 'birth') {
                         openBirthApplication()
                       } else if (srv.id === 'citizenship') {
