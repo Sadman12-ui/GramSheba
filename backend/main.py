@@ -1607,7 +1607,7 @@ def bangla_chat_assistant(request: Request, chat_data: ChatRequest):
 
     try:
         if groq_key:
-            import urllib.request
+            import json, urllib.request
             messages = [{"role": "system", "content": GRAMSHEBA_SYSTEM_INSTRUCTION}]
             for item in (chat_data.history or [])[-6:]:
                 messages.append({
