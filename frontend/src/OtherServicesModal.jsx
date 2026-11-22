@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import './App.css'
 import API_BASE from './api'
@@ -397,7 +398,7 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
 
   return (
     <div className="cert-modal-overlay" style={{ alignItems: 'flex-start', overflowY: 'auto', padding: '1.5rem 1rem' }}>
-      <div className="cert-modal-container" style={{ maxWidth: '820px', width: '100%', padding: '1.6rem', margin: '0 auto' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.94, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} className="cert-modal-container" style={{ maxWidth: '820px', width: '100%', padding: '1.6rem', margin: '0 auto' }}>
         {/* হেডার ও ভাষা টগল */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1.5px solid #e2e8f0', paddingBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -778,7 +779,7 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
             {loading ? t.submitting : t.submitBtn}
           </button>
         </form>
-      </div>
+      </motion.div>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import API_BASE from '../api'
 
@@ -118,7 +119,7 @@ export default function TransparencyMapModal({ currentUser, onClose }) {
 
   return (
     <div className="cert-modal-overlay" style={{ alignItems: 'flex-start', overflowY: 'auto', padding: '1.2rem 0.8rem', zIndex: 1200 }}>
-      <div className="cert-modal-container" style={{ maxWidth: '980px', width: '100%', padding: '1.5rem', margin: '0 auto' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.94, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} className="cert-modal-container" style={{ maxWidth: '980px', width: '100%', padding: '1.5rem', margin: '0 auto' }}>
         {/* হেডার */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid #e2e8f0', paddingBottom: '0.85rem', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
           <div>
@@ -413,7 +414,7 @@ export default function TransparencyMapModal({ currentUser, onClose }) {
             )}
           </>
         )}
-      </div>
+      </motion.div>
     </div>
   )
 }

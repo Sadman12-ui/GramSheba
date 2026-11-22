@@ -1,4 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
+
+const EN_TO_BN = { '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯' };
+const BN_TO_EN = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+
+function toBanglaDigits(num) {
+  return String(num).replace(/[0-9]/g, (d) => EN_TO_BN[d]);
+}
+
+function AnimatedBanglaCount({ target }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.3 });
+  const numericTarget = parseInt(String(target).replace(/[০-৯]/g, (d) => BN_TO_EN[d]).replace(/[^0-9]/g, ''), 10) || 0;
+  const [displayVal, setDisplayVal] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    const duration = 1100;
+    const start = performance.now();
+    let frameId;
+    const tick = (now) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayVal(Math.round(eased * numericTarget));
+      if (progress < 1) frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [inView, numericTarget]);
+
+  return <span ref={ref}>{toBanglaDigits(displayVal)}</span>;
+}
 
 // বিস্তারিত সরকারি প্রশাসনিক ডেটা
 const govDetailedData = {
@@ -136,7 +168,7 @@ export default function GovStatsGrid() {
   const currentDetail = activeModalKey ? govDetailedData[activeModalKey] : null;
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-6 font-sans">
+    <motion.div initial={{ opacity: 0, y: 26 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} className="w-full max-w-4xl mx-auto my-6 font-sans">
       
       {/* ক্লিক করার নির্দেশনামূলক ট্যাগ */}
       <div className="text-center mb-2">
@@ -158,7 +190,7 @@ export default function GovStatsGrid() {
               className="py-4 px-3 text-center hover:bg-emerald-50/70 transition-all cursor-pointer group focus:outline-none"
             >
               <h3 className="text-3xl sm:text-4xl font-extrabold text-[#1b734e] group-hover:scale-105 transition-transform font-serif">
-                {item.count}
+                <AnimatedBanglaCount target={item.count} />
               </h3>
               <p className="text-xs sm:text-sm font-semibold text-gray-700 mt-1 flex items-center justify-center gap-1">
                 <span>{item.label}</span>
@@ -178,7 +210,7 @@ export default function GovStatsGrid() {
               className="py-4 px-3 text-center hover:bg-emerald-50/70 transition-all cursor-pointer group focus:outline-none"
             >
               <h3 className="text-3xl sm:text-4xl font-extrabold text-[#1b734e] group-hover:scale-105 transition-transform font-serif">
-                {item.count}
+                <AnimatedBanglaCount target={item.count} />
               </h3>
               <p className="text-xs sm:text-sm font-semibold text-gray-700 mt-1 flex items-center justify-center gap-1">
                 <span>{item.label}</span>
@@ -195,7 +227,7 @@ export default function GovStatsGrid() {
           className="w-full py-4 px-4 text-center bg-[#f1f6f3] hover:bg-emerald-100/60 transition-all cursor-pointer group focus:outline-none"
         >
           <h3 className="text-3xl sm:text-4xl font-extrabold text-[#1b734e] group-hover:scale-105 transition-transform font-serif">
-            {stats[6].count}
+            <AnimatedBanglaCount target={stats[6].count} />
           </h3>
           <p className="text-xs sm:text-sm font-bold text-gray-800 mt-1 flex items-center justify-center gap-1">
             <span>{stats[6].label}</span>
@@ -205,9 +237,21 @@ export default function GovStatsGrid() {
       </div>
 
       {/* বিস্তারিত পপআপ মডাল (Click Modal) */}
+      <AnimatePresence>
       {currentDetail && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 12 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-100"
+          >
             
             {/* মডাল হেডার */}
             <div className="bg-gradient-to-r from-[#1b734e] to-[#208a61] p-5 text-white flex justify-between items-center">
@@ -251,10 +295,11 @@ export default function GovStatsGrid() {
               </button>
             </div>
 
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
-    </div>
+    </motion.div>
   );
 }

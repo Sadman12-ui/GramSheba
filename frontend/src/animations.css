@@ -1,0 +1,130 @@
+/* GramSheba Premium Motion & Micro-interactions */
+
+@keyframes heroGradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes floatGentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-9px); }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modalBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(27, 115, 78, 0.35); }
+  70% { box-shadow: 0 0 0 10px rgba(27, 115, 78, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(27, 115, 78, 0); }
+}
+
+/* অ্যানিমেটেড হিরো সেকশন */
+.smart-hero {
+  background-size: 200% 200% !important;
+  animation: heroGradientFlow 14s ease infinite;
+}
+
+.smart-hero-content {
+  animation: fadeSlideUp 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.smart-hero-badge {
+  animation: pulseRing 2.6s infinite;
+}
+
+.smart-hero-card {
+  animation: fadeSlideUp 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both, floatGentle 5.5s ease-in-out 1s infinite;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+}
+
+.smart-hero-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.16);
+}
+
+/* ৩ডি হোভার ও গ্লাসমর্ফিজম সার্ভিস কার্ড */
+.smart-service-card {
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.32s ease, border-color 0.32s ease !important;
+  will-change: transform;
+}
+
+.smart-service-card:hover {
+  transform: translateY(-8px) scale(1.025) !important;
+  box-shadow: 0 18px 36px rgba(27, 115, 78, 0.16) !important;
+  border-color: #10b981 !important;
+}
+
+.smart-service-card:hover span:first-child,
+.smart-service-card:hover .service-icon {
+  display: inline-block;
+  transform: scale(1.18) rotate(-4deg);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ড্যাশবোর্ড মেট্রিক কার্ড ও সেকশন */
+.metric-card,
+.card-box {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+
+/* বাটন মাইক্রো-ইন্টারঅ্যাকশন */
+.primary-button,
+.secondary-btn,
+.login-button,
+.nav-link-btn,
+.birth-submit {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, background-color 0.2s ease !important;
+}
+
+.primary-button:hover,
+.birth-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(27, 115, 78, 0.25);
+}
+
+.primary-button:active,
+.secondary-btn:active,
+.login-button:active,
+.birth-submit:active {
+  transform: scale(0.97) !important;
+}
+
+/* মডাল ব্যাকড্রপ স্মুথ ফেড */
+.cert-modal-overlay {
+  animation: modalBackdropIn 0.22s ease-out both;
+  backdrop-filter: blur(4px);
+}
+
+/* স্ক্রল-রিভিল ইউটিলিটি */
+.gs-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.gs-reveal.gs-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

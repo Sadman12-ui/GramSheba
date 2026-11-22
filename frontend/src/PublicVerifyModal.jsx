@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import './App.css'
 import API_BASE from './api'
@@ -51,7 +52,7 @@ function PublicVerifyModal({ initialTrackingId = '', initialHash = '', onClose }
 
   return (
     <div className="cert-modal-overlay">
-      <div className="cert-modal-container" style={{ maxWidth: '580px', padding: '1.8rem', position: 'relative' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.94, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 25 }} className="cert-modal-container" style={{ maxWidth: '580px', padding: '1.8rem', position: 'relative' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '1.6rem' }}>🛡️</span>
@@ -191,7 +192,7 @@ function PublicVerifyModal({ initialTrackingId = '', initialHash = '', onClose }
             )}
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   )
 }
