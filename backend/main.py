@@ -1607,7 +1607,7 @@ def bangla_chat_assistant(request: Request, chat_data: ChatRequest):
 
     try:
         if groq_key:
-            import json, urllib.request
+            import json, urllib.request, urllib.error
             messages = [{"role": "system", "content": GRAMSHEBA_SYSTEM_INSTRUCTION}]
             for item in (chat_data.history or [])[-6:]:
                 messages.append({
@@ -1615,24 +1615,60 @@ def bangla_chat_assistant(request: Request, chat_data: ChatRequest):
                     "content": item.text,
                 })
             messages.append({"role": "user", "content": f"{user_msg}{tracking_context}"})
-            payload = json.dumps({
-                "model": "llama-3.3-70b-versatile",
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 600,
-            }).encode("utf-8")
-            req = urllib.request.Request(
-                "https://api.groq.com/openai/v1/chat/completions",
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json",
-                    "User-Agent": "GramSheba/1.0",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=25) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                reply_text = (data["choices"][0]["message"]["content"] or "").strip()
+            headers = {
+                "Authorization": f"Bearer {groq_key.strip()}",
+                "Content-Type": "application/json",
+                "User-Agent": "GramSheba/1.0",
+            }
+
+            def _call_groq(model_name):
+                payload = json.dumps({
+                    "model": model_name,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 600,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    data=payload,
+                    headers=headers,
+                )
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return (data["choices"][0]["message"]["content"] or "").strip()
+
+            reply_text = ""
+            last_err = None
+            for m in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "meta-llama/llama-4-scout-17b-16e-instruct"]:
+                try:
+                    reply_text = _call_groq(m)
+                    break
+                except urllib.error.HTTPError as e:
+                    err_body = e.read().decode("utf-8", errors="ignore")
+                    print(f"Groq model {m} failed ({e.code}): {err_body}")
+                    last_err = Exception(f"HTTP {e.code}: {err_body}")
+                    if e.code not in (400, 404):
+                        raise last_err
+
+            if not reply_text:
+                m_req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers=headers)
+                with urllib.request.urlopen(m_req, timeout=15) as m_resp:
+                    m_data = json.loads(m_resp.read().decode("utf-8"))
+                skip_kw = ("whisper", "guard", "tts", "audio", "embed", "safeguard")
+                live_models = [
+                    x["id"] for x in m_data.get("data", [])
+                    if x.get("id") and not any(k in x["id"].lower() for k in skip_kw)
+                ]
+                for m in live_models[:5]:
+                    try:
+                        reply_text = _call_groq(m)
+                        break
+                    except urllib.error.HTTPError as e:
+                        err_body = e.read().decode("utf-8", errors="ignore")
+                        print(f"Groq fallback {m} failed ({e.code}): {err_body}")
+                        last_err = Exception(f"HTTP {e.code}: {err_body}")
+                if not reply_text and last_err:
+                    raise last_err
         else:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
