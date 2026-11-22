@@ -1589,10 +1589,11 @@ def bangla_chat_assistant(request: Request, chat_data: ChatRequest):
     if not user_msg:
         return {"reply": "অনুগ্রহ করে আপনার প্রশ্নটি লিখুন।"}
 
+    groq_key = os.getenv("GROQ_API_KEY")
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
+    if not groq_key and not api_key:
         return {
-            "reply": "সার্ভারে GEMINI_API_KEY কনফিগার করা হয়নি। অনুগ্রহ করে .env ফাইলে API Key যুক্ত করুন।"
+            "reply": "সার্ভারে GROQ_API_KEY বা GEMINI_API_KEY কনফিগার করা হয়নি।"
         }
 
     tracking_context = _lookup_tracking_context(user_msg)
@@ -1605,17 +1606,45 @@ def bangla_chat_assistant(request: Request, chat_data: ChatRequest):
     full_prompt = "\n".join(conversation_lines)
 
     try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=full_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=GRAMSHEBA_SYSTEM_INSTRUCTION,
-                temperature=0.7,
-                max_output_tokens=600,
-            ),
-        )
-        reply_text = (response.text or "").strip()
+        if groq_key:
+            import urllib.request
+            messages = [{"role": "system", "content": GRAMSHEBA_SYSTEM_INSTRUCTION}]
+            for item in (chat_data.history or [])[-6:]:
+                messages.append({
+                    "role": "user" if item.sender == "user" else "assistant",
+                    "content": item.text,
+                })
+            messages.append({"role": "user", "content": f"{user_msg}{tracking_context}"})
+            payload = json.dumps({
+                "model": "llama-3.3-70b-versatile",
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 600,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "GramSheba/1.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                reply_text = (data["choices"][0]["message"]["content"] or "").strip()
+        else:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=GRAMSHEBA_SYSTEM_INSTRUCTION,
+                    temperature=0.7,
+                    max_output_tokens=600,
+                ),
+            )
+            reply_text = (response.text or "").strip()
         if not reply_text:
             reply_text = "দুঃখিত, এই মুহূর্তে উত্তর তৈরি করা সম্ভব হয়নি। আবার চেষ্টা করুন।"
         return {"reply": reply_text}
