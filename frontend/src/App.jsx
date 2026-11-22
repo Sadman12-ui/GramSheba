@@ -8,7 +8,6 @@ import OtherServicesModal from './OtherServicesModal'
 import OfficialCertificate from './OfficialCertificate'
 import CitizenAccessibility from './components/CitizenAccessibility'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
-import UnionRegistration from './components/UnionRegistration'
 import GovStatsGrid from './components/GovStatsGrid'
 import './App.css'
 
@@ -500,14 +499,6 @@ function App() {
             🔍 সনদ যাচাই
           </button>
 
-          <button
-            type="button"
-            className="nav-link-btn"
-            style={{ color: '#16a34a', fontWeight: 700 }}
-            onClick={() => setShowUnionRegister(true)}
-          >
-            🏛️ ইউনিয়ন নিবন্ধন
-          </button>
 
           {user && (
             <button
@@ -1494,17 +1485,6 @@ function App() {
         </div>
       )}
 
-      {/* ৩-ধাপের ইউনিয়ন পরিষদ নিবন্ধন মডাল */}
-      {showUnionRegister && (
-        <UnionRegistration
-          onClose={() => setShowUnionRegister(false)}
-          onSuccess={() => {
-            setShowUnionRegister(false)
-            alert('অভিনন্দন! ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তার নিবন্ধন সফল হয়েছে। এখন লগইন করুন।')
-            setShowAuth(true)
-          }}
-        />
-      )}
 
       {showVerifyModal && (
         <PublicVerifyModal onClose={() => setShowVerifyModal(false)} />

@@ -136,6 +136,54 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD and SMTP_FROM are required in production")
     Base.metadata.create_all(bind=engine)
     otp_metadata.create_all(bind=engine)
+
+    # ডিফল্ট ইউনিয়ন, সুপার অ্যাডমিন ও ইউনিয়ন অ্যাডমিন অটো-সিড
+    with SessionLocal() as db:
+        default_union = db.query(Union).filter(Union.code == "RAMPUR01").first() or db.query(Union).first()
+        if not default_union:
+            u_kwargs = {"name": "রামপুর ইউনিয়ন পরিষদ", "code": "RAMPUR01"}
+            for col in Union.__table__.columns:
+                if col.name not in u_kwargs and not col.primary_key and not col.nullable and col.default is None and col.server_default is None:
+                    try:
+                        py_type = col.type.python_type
+                    except Exception:
+                        py_type = str
+                    u_kwargs[col.name] = 0 if py_type is int else (True if py_type is bool else "সাধারণ")
+            default_union = Union(**u_kwargs)
+            db.add(default_union)
+            db.commit()
+            db.refresh(default_union)
+
+        seed_accounts = [
+            {
+                "full_name": "Super Admin",
+                "email": os.getenv("SUPER_ADMIN_EMAIL", "superadmin@gramsheba.gov.bd").strip().lower(),
+                "phone": "01700000001",
+                "area": "কেন্দ্রীয় কার্যালয়",
+                "password": os.getenv("SUPER_ADMIN_PASSWORD", "SuperAdmin@123"),
+                "role": "super_admin",
+            },
+            {
+                "full_name": "Union Admin",
+                "email": os.getenv("UNION_ADMIN_EMAIL", "admin@gramsheba.gov.bd").strip().lower(),
+                "phone": "01700000002",
+                "area": "রামপুর ইউনিয়ন পরিষদ",
+                "password": os.getenv("UNION_ADMIN_PASSWORD", "Admin@1234"),
+                "role": "union_admin",
+            },
+        ]
+        for acc in seed_accounts:
+            if not db.query(User).filter(User.email == acc["email"]).first():
+                db.add(User(
+                    full_name=acc["full_name"],
+                    email=acc["email"],
+                    phone=acc["phone"],
+                    area=acc["area"],
+                    password_hash=password_hash.hash(acc["password"]),
+                    union_id=default_union.id,
+                    role=acc["role"],
+                ))
+        db.commit()
     yield
 
 
@@ -413,7 +461,11 @@ def register(request: Request, user_data: UserCreate):
 @app.post("/api/union-register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 def register_union_and_admin(request: Request, data: UnionOnboardingRequest):
-    """৩-ধাপের ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তা নিবন্ধনের জন্য ডেডিকেটেড এন্ডপয়েন্ট"""
+    """পাবলিক ইউনিয়ন নিবন্ধন বন্ধ রয়েছে"""
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="পাবলিক ইউনিয়ন নিবন্ধন বন্ধ রয়েছে। অনুগ্রহ করে অ্যাডমিন অ্যাকাউন্ট দিয়ে লগইন করুন।",
+    )
     email = str(data.email).strip().lower()
     union_code = data.union_code.strip().upper()
     union_name = data.union_name.strip()
