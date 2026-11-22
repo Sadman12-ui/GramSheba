@@ -1145,6 +1145,7 @@ function App() {
               </div>
             </section>
 
+            {!isUnionAdmin && !isSuperAdmin && (
             <section className="smart-services-section" id="services">
               <div className="smart-section-header">
                 <span className="sub-title">DIGITAL SERVICES</span>
@@ -1184,6 +1185,7 @@ function App() {
                 ))}
               </div>
             </section>
+            )}
 
             {/* ডিজিটাল বাংলা ভয়েস সহকারী ও সরকারি ফি ক্যালকুলেটর */}
             <section style={{ padding: '1rem 1.5rem 2.5rem', maxWidth: '1200px', margin: '0 auto' }}>
