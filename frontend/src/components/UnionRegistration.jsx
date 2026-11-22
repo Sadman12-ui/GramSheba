@@ -106,14 +106,18 @@ export default function UnionRegistration({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden border border-gray-100 my-6">
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
+      style={{ zIndex: 9999 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+    >
+      <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full overflow-hidden border border-gray-100 my-auto">
         <div className="bg-gradient-to-b from-[#2ea879] to-[#208a61] px-6 py-8 text-center text-white relative">
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-4 right-5 text-white/80 hover:text-white text-2xl font-bold transition"
+              aria-label="বন্ধ করুন" className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/20 hover:bg-black/40 text-white flex items-center justify-center text-xl font-bold cursor-pointer transition"
             >
               ✕
             </button>
