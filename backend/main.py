@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import io
 import os
+import re
 import secrets
 import smtplib
 import ssl
@@ -27,6 +28,8 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from google import genai
+from google.genai import types
 from pwdlib import PasswordHash
 from pydantic import BaseModel, EmailStr, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -277,8 +280,14 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class ChatMessageItem(BaseModel):
+    sender: str
+    text: str
+
+
 class ChatRequest(BaseModel):
     message: str
+    history: Optional[list[ChatMessageItem]] = []
 
 
 class GeneralServiceCreate(BaseModel):
@@ -1519,47 +1528,102 @@ def export_applications_csv(
 
 
 # ==========================================
-# Bangla AI Assistant Endpoint
+# Intelligent Gemini AI Assistant Endpoint
 # ==========================================
 
-FAQ_KNOWLEDGE_BASE = [
-    {
-        "keywords": ["hi", "hello", "salam", "assalamu", "helo", "hy", "kemon", "হাই", "হ্যালো", "সালাম", "কেমন"],
-        "reply": "ওয়ালাইকুম আসসালাম! আমি গ্রামসেবা ডিজিটাল সহকারী। জন্ম নিবন্ধন, নাগরিকত্ব সনদ, ফি বা ট্র্যাকিং নিয়ে যে কোনো প্রশ্ন করতে পারেন।"
-    },
-    {
-        "keywords": ["জন্ম নিবন্ধন", "আবেদন", "কীভাবে", "নিয়ম", "jonmo", "nibondhon", "kivabe", "abedon", "apply"],
-        "reply": "জন্ম নিবন্ধনের জন্য হোমপেজ থেকে 'জন্ম নিবন্ধন' কার্ডে ক্লিক করুন। প্রয়োজনীয় তথ্য পূরণ করে জমা দিন। আবেদন অনুমোদনের পর ডিজিটাল সনদ পাবেন।"
-    },
-    {
-        "keywords": ["নাগরিকত্ব", "নাগরিক সনদ", "citizenship", "nagorik", "sonod"],
-        "reply": "নাগরিকত্ব সনদের জন্য 'নাগরিকত্ব সনদ' কার্ডে ক্লিক করুন। এনআইডি/জন্মসনদ নম্বর ও বর্তমান-স্থায়ী ঠিকানা দিয়ে অনলাইনে ফি পরিশোধ করে আবেদন জমা দেওয়া যায়।"
-    },
-    {
-        "keywords": ["ফি", "টাকা", "খরচ", "পয়সা", "পেমেন্ট", "বিকাশ", "নগদ", "fee", "taka", "tk", "cost", "bkash", "nagad"],
-        "reply": "জন্ম নিবন্ধন শিশুর জন্মের ৪৫ দিনের মধ্যে বিনামূল্যে। নাগরিকত্ব সনদের সরকারি ফি ৫০ টাকা, যা বিকাশ, নগদ বা কার্ডের মাধ্যমে অনলাইনে তাৎক্ষণিক পরিশোধ করা যায়।"
-    },
-    {
-        "keywords": ["ট্র্যাকিং", "স্ট্যাটাস", "অবস্থা", "চেক", "track", "tracking", "status", "check"],
-        "reply": "আবেদন জমা দেওয়ার পর প্রাপ্ত ট্র্যাকিং নম্বর দিয়ে 'আবেদনের অবস্থা' মেনুতে গিয়ে যে কোনো সময় স্ট্যাটাস চেক করতে পারবেন।"
-    },
-    {
-        "keywords": ["সনদ", "ডাউনলোড", "প্রিন্ট", "সার্টিফিকেট", "যাচাই", "qr", "sonod", "certificate", "download", "verify"],
-        "reply": "অনুমোদনের পর 'সনদ দেখুন' বোতাম চেপে অফিশিয়াল ফরম্যাটে সনদ প্রিন্ট বা ডাউনলোড করতে পারবেন। সনদে থাকা QR কোড দিয়ে যে কেউ অনলাইন ভেরিফিকেশন করতে পারে।"
-    }
-]
+GRAMSHEBA_SYSTEM_INSTRUCTION = """
+তুমি 'গ্রামসেবা ডিজিটাল সহকারী' (GramSheba AI Assistant), গণপ্রজাতন্ত্রী বাংলাদেশ সরকারের স্মার্ট ইউনিয়ন পরিষদ সেবা পোর্টাল 'GramSheba'-এর অফিশিয়াল এআই সহকারী।
+
+তোমার ব্যক্তিত্ব ও কথা বলার ধরন:
+১. তুমি অত্যন্ত ভদ্র, বন্ধুত্বপূর্ণ, আন্তরিক এবং বুদ্ধিমান।
+২. ইউজার যদি সাধারণ কুশল বিনিময় করে (যেমন: "কেমন আছো?", "হ্যালো", "আসসালামু আলাইকুম", "তুমি কে?"), তবে মানুষের মতো স্বাভাবিক ও আন্তরিক উত্তর দেবে (যেমন: "আলহামদুলিল্লাহ, আমি ভালো আছি! আপনি কেমন আছেন? গ্রামসেবা পোর্টালে আপনাকে কীভাবে সাহায্য করতে পারি?")।
+৩. ইউজার যে ভাষায় (বাংলা, ইংরেজি বা বাংলিশ) প্রশ্ন করবে, তুমি সেই ভাষায় সহজ ও প্রাঞ্জলভাবে উত্তর দেবে। তবে বাংলায় প্রশ্ন করলে অবশ্যই শুদ্ধ ও সহজ বাংলায় উত্তর দেবে।
+৪. উত্তরগুলো সংক্ষিপ্ত, স্পষ্ট এবং পয়েন্ট আকারে দেবে যেন নাগরিকরা সহজে বুঝতে পারেন।
+
+GramSheba পোর্টাল সম্পর্কে তোমার সম্পূর্ণ জ্ঞান (প্রজেক্টের সব তথ্য):
+- **পোর্টালের উদ্দেশ্য:** ইউনিয়ন পরিষদের সকল নাগরিক সেবা ডিজিটাল, স্বচ্ছ ও হয়রানিমুক্ত করা।
+- **উপলব্ধ ৯টি প্রধান সেবা:**
+  ১. জন্ম নিবন্ধন (Birth Registration): শিশুর জন্মের ৪৫ দিনের মধ্যে সম্পূর্ণ বিনামূল্যে। অনুমোদনের পর BDRIS ফরম্যাটে QR কোডযুক্ত সনদ পাওয়া যায়।
+  ২. নাগরিকত্ব সনদ (Citizenship Certificate): সরকারি ফি ৫০ টাকা।
+  ৩. ট্রেড লাইসেন্স (Trade License): ব্যবসার ধরন অনুযায়ী সরকারি ফি + ১৫% ভ্যাট।
+  ৪. ওয়ারিশ সনদ (Succession/Warish Certificate): মৃত ব্যক্তির ওয়ারিশগণের প্রত্যয়ন।
+  ৫. পারিবারিক সনদ (Family Certificate)
+  ৬. মৃত্যু সনদ (Death Certificate)
+  ৭. নতুন ভোটার প্রত্যয়ন (New Voter Certificate)
+  ৮. পুনঃবিবাহ না হওয়ার সনদ (Non-Remarriage Certificate)
+  ৯. কৃষি প্রত্যয়ন (Agriculture Certificate)
+- **বিশেষ স্মার্ট ফিচারসমূহ:**
+  - **AI OCR স্ক্যানার:** নাগরিকত্ব সনদ ফর্মে NID বা জন্ম সনদের ছবি আপলোড করলে AI স্বয়ংক্রিয়ভাবে নাম, পিতা-মাতার নাম, জন্ম তারিখ ও NID নম্বর পূরণ করে দেয়।
+  - **অনলাইন পেমেন্ট:** বিকাশ (bKash), নগদ (Nagad) ও কার্ডের মাধ্যমে তাৎক্ষণিক সরকারি ফি পরিশোধ করা যায়।
+  - **QR কোড সনদ যাচাই:** হোমপেজ বা নেভবারের 'সনদ যাচাই' বাটনে গিয়ে বা সনদের QR কোড স্ক্যান করে লগইন ছাড়াই সনদের সত্যতা যাচাই করা যায়।
+  - **অভিযোগ ও পরামর্শ:** নাগরিকরা লগইন করে 'আবেদনের অবস্থা' মেনু থেকে যেকোনো অভিযোগ বা পরামর্শ জমা দিতে পারেন।
+  - **ইউনিয়ন পরিষদ নিবন্ধন:** নেভবারের 'ইউনিয়ন নিবন্ধন' বাটন থেকে ৩ ধাপে নতুন ইউনিয়ন পরিষদ ও প্রশাসনিক কর্মকর্তা নিবন্ধন করা যায়।
+- **আবেদন করার ধাপ:** প্রথমে 'লগইন' বাটনে গিয়ে নাগরিক অ্যাকাউন্ট খুলতে হবে (ইউনিয়ন কোড যেমন RAMPUR01 ব্যবহার করে) -> লগইন করে কাঙ্ক্ষিত সেবায় ক্লিক করে ফর্ম পূরণ ও জমা -> 'আবেদনের অবস্থা' মেনু থেকে ট্র্যাকিং ও অনুমোদনের পর সনদ ডাউনলোড/প্রিন্ট।
+"""
+
+
+def _lookup_tracking_context(message: str) -> str:
+    """মেসেজে কোনো GS- ট্র্যাকিং আইডি থাকলে ডেটাবেস থেকে তার লাইভ স্ট্যাটাস বের করে AI-কে দেয়"""
+    match = re.search(r"(GS-[A-Z0-9-]+)", message.upper())
+    if not match:
+        return ""
+    tid = match.group(1)
+    with SessionLocal() as db:
+        b = db.query(BirthApplication).filter(BirthApplication.tracking_id.ilike(tid)).first()
+        if b:
+            return f"\n[সিস্টেম ডেটাবেস তথ্য: ট্র্যাকিং আইডি {b.tracking_id} (জন্ম নিবন্ধন - {b.child_name})-এর বর্তমান স্ট্যাটাস হলো '{b.status}'।]"
+        c = db.query(CitizenshipApplication).filter(CitizenshipApplication.tracking_id.ilike(tid)).first()
+        if c:
+            name = (c.applicant_data or {}).get("name", "")
+            return f"\n[সিস্টেম ডেটাবেস তথ্য: ট্র্যাকিং আইডি {c.tracking_id} (নাগরিকত্ব সনদ - {name})-এর বর্তমান স্ট্যাটাস হলো '{c.status}'।]"
+        g = db.query(GeneralServiceApplication).filter(GeneralServiceApplication.tracking_id.ilike(tid)).first()
+        if g:
+            return f"\n[সিস্টেম ডেটাবেস তথ্য: ট্র্যাকিং আইডি {g.tracking_id} ({g.service_type} - {g.applicant_name})-এর বর্তমান স্ট্যাটাস হলো '{g.status}'।]"
+    return f"\n[সিস্টেম ডেটাবেস তথ্য: '{tid}' নম্বরে ডেটাবেসে কোনো আবেদন পাওয়া যায়নি।]"
 
 
 @app.post("/api/chat")
-def bangla_chat_assistant(chat_data: ChatRequest):
-    user_msg = chat_data.message.strip().lower()
-    for item in FAQ_KNOWLEDGE_BASE:
-        if any(kw in user_msg for kw in item["keywords"]):
-            return {"reply": item["reply"]}
+@limiter.limit("30/minute")
+def bangla_chat_assistant(request: Request, chat_data: ChatRequest):
+    user_msg = chat_data.message.strip()
+    if not user_msg:
+        return {"reply": "অনুগ্রহ করে আপনার প্রশ্নটি লিখুন।"}
 
-    return {
-        "reply": "আমি বুঝতে পেরেছি! আপনি জন্ম নিবন্ধন, নাগরিকত্ব সনদ, ফি (fee), ট্র্যাকিং (tracking) বা সনদ যাচাই নিয়ে প্রশ্ন করতে পারেন।"
-    }
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {
+            "reply": "সার্ভারে GEMINI_API_KEY কনফিগার করা হয়নি। অনুগ্রহ করে .env ফাইলে API Key যুক্ত করুন।"
+        }
+
+    tracking_context = _lookup_tracking_context(user_msg)
+
+    conversation_lines = []
+    for item in (chat_data.history or [])[-6:]:
+        role_label = "নাগরিক" if item.sender == "user" else "সহকারী"
+        conversation_lines.append(f"{role_label}: {item.text}")
+    conversation_lines.append(f"নাগরিক: {user_msg}{tracking_context}")
+    full_prompt = "\n".join(conversation_lines)
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=GRAMSHEBA_SYSTEM_INSTRUCTION,
+                temperature=0.7,
+                max_output_tokens=600,
+            ),
+        )
+        reply_text = (response.text or "").strip()
+        if not reply_text:
+            reply_text = "দুঃখিত, এই মুহূর্তে উত্তর তৈরি করা সম্ভব হয়নি। আবার চেষ্টা করুন।"
+        return {"reply": reply_text}
+    except Exception as e:
+        print("Gemini Chat Error:", e)
+        return {
+            "reply": "দুঃখিত, AI সহকারীর সাথে সংযোগে সাময়িক সমস্যা হচ্ছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।"
+        }
 
 
 # =========================================================

@@ -7,7 +7,7 @@ function Chatbot() {
   const [messages, setMessages] = useState([
     {
       sender: 'bot',
-      text: 'আসসালামু আলাইকুম! আমি গ্রামসেবা ডিজিটাল সহকারী। নাগরিক সেবা সংক্রান্ত যেকোনো তথ্য জানতে আমাকে বাংলায় প্রশ্ন করতে পারেন।',
+      text: 'আসসালামু আলাইকুম! আমি গ্রামসেবা ডিজিটাল সহকারী। কেমন আছেন? নাগরিক সেবা বা পোর্টালের যেকোনো তথ্য জানতে আমাকে বাংলা বা ইংরেজিতে প্রশ্ন করতে পারেন।',
     },
   ])
   const [input, setInput] = useState('')
@@ -16,13 +16,14 @@ function Chatbot() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, loading, isOpen])
 
   async function handleSend(e) {
     e.preventDefault()
     if (!input.trim() || loading) return
 
     const userText = input.trim()
+    const recentHistory = messages.slice(-6)
     setMessages((prev) => [...prev, { sender: 'user', text: userText }])
     setInput('')
     setLoading(true)
@@ -31,7 +32,10 @@ function Chatbot() {
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText }),
+        body: JSON.stringify({
+          message: userText,
+          history: recentHistory,
+        }),
       })
 
       if (res.ok) {
@@ -88,7 +92,7 @@ function Chatbot() {
           <div className="chatbot-body">
             {messages.map((m, idx) => (
               <div key={idx} className={`chat-bubble ${m.sender}`}>
-                <p>{m.text}</p>
+                <p style={{ whiteSpace: 'pre-line' }}>{m.text}</p>
               </div>
             ))}
             {loading && (
@@ -102,7 +106,7 @@ function Chatbot() {
           <form className="chatbot-footer" onSubmit={handleSend}>
             <input
               type="text"
-              placeholder="আপনার প্রশ্ন বাংলায় লিখুন..."
+              placeholder="আপনার প্রশ্ন লিখুন..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
