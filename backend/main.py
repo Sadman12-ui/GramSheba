@@ -605,11 +605,43 @@ def _send_sms_notification(phone: str, text: str) -> None:
 
 
 def _send_email_notification(to_email: str, subject: str, body: str) -> None:
+    import json
+    import urllib.request
+
+    if not to_email:
+        return
+
+    sender = os.getenv("SMTP_FROM", os.getenv("SMTP_USERNAME", "")).strip()
+    brevo_key = os.getenv("BREVO_API_KEY", "").strip()
+
+    # ১) Brevo HTTPS API (Render ফ্রি প্ল্যানে পোর্ট 443 কখনো ব্লক হয় না)
+    if brevo_key and sender:
+        payload = json.dumps({
+            "sender": {"name": "GramSheba", "email": sender},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "textContent": body,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.brevo.com/v3/smtp/email",
+            data=payload,
+            headers={
+                "api-key": brevo_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp.read()
+        print(f"[EMAIL SENT via Brevo] To: {to_email}", flush=True)
+        return
+
+    # ২) ফলব্যাক SMTP
     host, username, password = (os.getenv(k) for k in ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD"))
-    sender = os.getenv("SMTP_FROM", username or "")
     port = int(os.getenv("SMTP_PORT", "587"))
-    if not all([host, username, password, sender]) or not to_email:
-        print(f"[EMAIL LOG - SMTP Not Configured] To: {to_email} | Subject: {subject}")
+    if not all([host, username, password, sender]):
+        print(f"[EMAIL LOG - Email Not Configured] To: {to_email} | Subject: {subject}", flush=True)
         return
     message = EmailMessage()
     message["Subject"] = subject
@@ -619,6 +651,7 @@ def _send_email_notification(to_email: str, subject: str, body: str) -> None:
         server.starttls(context=ssl.create_default_context())
         server.login(username, password)
         server.send_message(message)
+    print(f"[EMAIL SENT via SMTP] To: {to_email}", flush=True)
 
 
 def _notify_status_change(
@@ -665,12 +698,12 @@ def _notify_status_change(
             if to_email:
                 _send_email_notification(to_email, subject, email_body)
         except Exception as exc:
-            print(f"[Notification Email Error] {exc}")
+            print(f"[Notification Email Error] {exc}", flush=True)
         try:
             if to_phone:
                 _send_sms_notification(to_phone, sms_text)
         except Exception as exc:
-            print(f"[Notification SMS Error] {exc}")
+            print(f"[Notification SMS Error] {exc}", flush=True)
 
     threading.Thread(target=_worker, daemon=True).start()
 
