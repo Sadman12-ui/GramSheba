@@ -15,3 +15,8 @@ uploads/*
 node_modules/
 dist/
 .vite/
+
+# macOS & Backend Uploads
+.DS_Store
+backend/uploads/*
+!backend/uploads/.gitkeep
