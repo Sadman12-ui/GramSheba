@@ -18,7 +18,7 @@ function Auth({ onBack, onLogin }) {
     full_name: '',
     email: '',
     phone: '',
-    area: '',
+    area: 'উল্লেখ নেই',
     password: '',
     union_code: 'RAMPUR01',
   })
@@ -294,21 +294,6 @@ function Auth({ onBack, onLogin }) {
                     required
                   />
                 </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '3px' }}>
-                  গ্রাম ও ওয়ার্ড নং (ঠিকানা) *
-                </label>
-                <input
-                  type="text"
-                  name="area"
-                  placeholder="যেমন: গ্রাম: রামপুর, ওয়ার্ড নং ০৪"
-                  value={regData.area}
-                  onChange={handleRegChange}
-                  style={{ width: '100%', padding: '0.68rem 0.9rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.92rem' }}
-                  required
-                />
               </div>
 
               <div>
