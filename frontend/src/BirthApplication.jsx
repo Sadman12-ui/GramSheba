@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './BirthApplication.css'
 import API_BASE from './api'
 import { bangladeshGeoData } from './bangladeshData'
+import VoiceAssistBar from './components/VoiceAssistBar'
 
 function getTodayDate() {
   const today = new Date()
@@ -186,7 +187,7 @@ function BirthApplication({ onBack }) {
         gender: ext.gender || prev.gender,
         address: ext.address || prev.address,
       }))
-      alert('✅ AI OCR সফলভাবে তথ্য পূরণ করেছে! অনুগ্রহ করে তথ্যগুলো যাচাই করুন।')
+      alert(data.message || '✅ AI OCR সফলভাবে তথ্য পূরণ করেছে! অনুগ্রহ করে তথ্যগুলো যাচাই করুন।')
     } catch (err) {
       alert(`⚠️ ${err.message || 'OCR স্ক্যান করতে সমস্যা হয়েছে।'}`)
     } finally {
@@ -457,6 +458,23 @@ function BirthApplication({ onBack }) {
               </label>
             )}
           </div>
+
+          {/* ১.৫ বাংলা ভয়েস-টু-ফর্ম */}
+          <VoiceAssistBar
+            lang={lang}
+            onExtracted={(ext) =>
+              setFormData((prev) => ({
+                ...prev,
+                child_name: ext.name || prev.child_name,
+                father_name: ext.guardian_name || prev.father_name,
+                mother_name: ext.mother_name || prev.mother_name,
+                birth_date: ext.dob || prev.birth_date,
+                gender: ext.gender || prev.gender,
+                birth_place: ext.birth_place || prev.birth_place,
+                address: ext.address || prev.address,
+              }))
+            }
+          />
 
           {/* ২. স্মার্ট AI OCR স্ক্যানার */}
           <div style={{ background: '#ecfdf5', border: '1.5px dashed #10b981', borderRadius: '12px', padding: '0.95rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>

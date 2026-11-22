@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import API_BASE from './api'
 import { bangladeshGeoData } from './bangladeshData'
+import VoiceAssistBar from './components/VoiceAssistBar'
 
 const LABELS = {
   bn: {
@@ -259,7 +260,7 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
         dob: ext.dob || prev.dob,
         gender: ext.gender || prev.gender,
       }))
-      alert('✅ AI OCR সফলভাবে তথ্য পূরণ করেছে! অনুগ্রহ করে তথ্যগুলো যাচাই করুন।')
+      alert(data.message || '✅ AI OCR সফলভাবে তথ্য পূরণ করেছে! অনুগ্রহ করে তথ্যগুলো যাচাই করুন।')
     } catch (err) {
       alert(`⚠️ ${err.message || 'OCR স্ক্যান করতে সমস্যা হয়েছে।'}`)
     } finally {
@@ -507,6 +508,27 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
               </label>
             )}
           </div>
+
+          {/* ১.৫ বাংলা ভয়েস-টু-ফর্ম */}
+          <VoiceAssistBar
+            lang={lang}
+            onExtracted={(ext) =>
+              setFormData((prev) => ({
+                ...prev,
+                applicant_name: ext.name || prev.applicant_name,
+                guardian_name: ext.guardian_name || prev.guardian_name,
+                mother_name: ext.mother_name || prev.mother_name,
+                nid_brn: ext.nid_brn || prev.nid_brn,
+                phone: ext.phone || prev.phone,
+                dob: ext.dob || prev.dob,
+                gender: ext.gender || prev.gender,
+                ward_no: ext.ward_no || prev.ward_no,
+                village: ext.village || prev.village,
+                post_office: ext.post_office || prev.post_office,
+                reason_or_description: ext.reason || prev.reason_or_description,
+              }))
+            }
+          />
 
           {/* ২. স্মার্ট AI OCR স্ক্যানার */}
           <div style={{ background: '#ecfdf5', border: '1.5px dashed #10b981', borderRadius: '12px', padding: '0.9rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>

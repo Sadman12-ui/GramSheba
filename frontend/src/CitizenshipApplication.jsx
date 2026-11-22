@@ -3,6 +3,7 @@ import PaymentModal from './PaymentModal'
 import './CitizenshipApplication.css'
 
 import API_BASE from './api'
+import VoiceAssistBar from './components/VoiceAssistBar'
 
 // বাংলাদেশের প্রশাসনিক তথ্য
 const BANGLADESH_GEO_DATA = {
@@ -709,6 +710,26 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
         </div>
 
         <form className="quick-search-form" onSubmit={handleQuickSearch}>
+          <VoiceAssistBar
+            lang={lang}
+            onExtracted={(ext) =>
+              setFormData((prev) => ({
+                ...prev,
+                name: ext.name || prev.name,
+                guardian_name: ext.guardian_name || prev.guardian_name,
+                mother_name: ext.mother_name || prev.mother_name,
+                nid_brn: ext.nid_brn || prev.nid_brn,
+                mobile: ext.phone || prev.mobile,
+                dob: ext.dob || prev.dob,
+                gender: ext.gender || prev.gender,
+                ward_no: ext.ward_no || prev.ward_no,
+                village: ext.village || prev.village,
+                post_office: ext.post_office || prev.post_office,
+                reason: ext.reason || prev.reason,
+              }))
+            }
+          />
+
           <div className="search-field">
             <label>🆔 {t.nidBrnSearch}</label>
             <input type="text" placeholder={t.nidBrnPlaceholder} />

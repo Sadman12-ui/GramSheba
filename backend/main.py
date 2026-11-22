@@ -1167,6 +1167,8 @@ def public_verify_certificate(tracking_id: str):
 @app.post("/api/ocr/scan-document")
 @limiter.limit("10/minute")
 async def scan_document_ocr(request: Request, file: UploadFile = File(...)):
+    import json
+
     ext = Path(file.filename or "").suffix.lower()
     if ext not in {".jpg", ".jpeg", ".png", ".pdf"}:
         raise HTTPException(
@@ -1181,20 +1183,169 @@ async def scan_document_ocr(request: Request, file: UploadFile = File(...)):
             detail="ফাইলের আকার সর্বোচ্চ ৫ MB হতে পারবে।",
         )
 
+    mime_map = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".pdf": "application/pdf",
+    }
+    mime_type = mime_map.get(ext, "image/jpeg")
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+
+    if api_key:
+        try:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=api_key)
+            prompt = (
+                "You are an expert OCR assistant for Bangladesh government documents "
+                "(NID card, Birth Registration Certificate, Hospital Discharge Slip). "
+                "Extract the applicant details from this document and return ONLY valid JSON with these exact keys: "
+                "name (string), guardian_name (father or husband name, string), mother_name (string), "
+                "nid_brn (10, 13, or 17 digit ID number in English digits, string), "
+                "dob (YYYY-MM-DD format in English digits or empty string), "
+                "gender ('male', 'female', 'other', or empty string), "
+                "address (string), is_valid_document (boolean), "
+                "warning (short Bangla warning if image is blurry or not an identity/birth document, else empty string). "
+                "Leave unknown fields as empty strings."
+            )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    types.Part.from_bytes(data=content, mime_type=mime_type),
+                    prompt,
+                ],
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            parsed = json.loads(response.text)
+            is_valid = bool(parsed.get("is_valid_document", True))
+            warning = str(parsed.get("warning") or "").strip()
+            return {
+                "success": True,
+                "mode": "gemini_ai",
+                "is_valid_document": is_valid,
+                "warning": warning,
+                "extracted_data": {
+                    "name": str(parsed.get("name") or "").strip(),
+                    "guardian_name": str(parsed.get("guardian_name") or "").strip(),
+                    "mother_name": str(parsed.get("mother_name") or "").strip(),
+                    "nid_brn": str(parsed.get("nid_brn") or "").strip(),
+                    "dob": str(parsed.get("dob") or "").strip(),
+                    "gender": str(parsed.get("gender") or "").strip().lower(),
+                    "address": str(parsed.get("address") or "").strip(),
+                },
+                "confidence": 0.96 if is_valid else 0.45,
+                "message": (
+                    f"⚠️ সতর্কতা: {warning}"
+                    if warning
+                    else "✅ Gemini Vision AI ডকুমেন্ট থেকে আসল তথ্য স্ক্যান করেছে।"
+                ),
+            }
+        except Exception as exc:
+            print(f"[Gemini OCR Error] {exc}", flush=True)
+
     return {
         "success": True,
+        "mode": "demo_fallback",
+        "is_valid_document": True,
+        "warning": "সার্ভারে GEMINI_API_KEY সেট না থাকায় ডেমো তথ্য দেখানো হয়েছে।",
         "extracted_data": {
-            "name": "শাহ মো. সাদমান সাকিব",
-            "guardian_name": "মো. জালাল আহমদ",
-            "mother_name": "মোসা. সালেহা বেগম",
+            "name": "মো. তানভীর হাসান",
+            "guardian_name": "মো. রফিকুল ইসলাম",
+            "mother_name": "মোসা. মনোয়ারা বেগম",
             "nid_brn": "19981324567890123",
             "dob": "1998-05-14",
             "gender": "male",
-            "address": "গ্রাম: রামপুর, ডাকঘর: রামপুর, চাঁদপুর সদর",
+            "address": "গ্রাম: বিষ্ণুপুর, ওয়ার্ড নং: ০৪, ডাকঘর: বিষ্ণুপুর",
         },
-        "confidence": 0.98,
-        "message": "AI দ্বারা জাতীয় পরিচয়পত্র থেকে তথ্য সফলভাবে স্ক্যান করা হয়েছে।",
+        "confidence": 0.85,
+        "message": "ডেমো মোডে তথ্য পূরণ হয়েছে (আসল AI OCR-এর জন্য Render-এ GEMINI_API_KEY যোগ করুন)।",
     }
+
+
+@app.post("/api/ai/parse-voice")
+@limiter.limit("20/minute")
+async def parse_voice_to_form(request: Request):
+    import json
+    import re as _re
+
+    body = await request.json()
+    transcript = str(body.get("transcript") or "").strip()
+    if len(transcript) < 3:
+        raise HTTPException(status_code=400, detail="ভয়েস টেক্সট পাওয়া যায়নি। আবার বলুন।")
+
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if api_key:
+        try:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=api_key)
+            prompt = (
+                "Extract Bangladesh citizen form fields from this spoken Bangla/English text. "
+                "Return ONLY valid JSON with these exact keys (use empty string if not mentioned): "
+                "name, guardian_name, mother_name, nid_brn (English digits), phone (English digits), "
+                "dob (YYYY-MM-DD), gender ('male'|'female'|'other'|''), ward_no (Bangla digit ১-৯ if mentioned), "
+                "village, post_office, birth_place, address, reason.\n\n"
+                f"Spoken text: {transcript}"
+            )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            parsed = json.loads(response.text)
+            return {"success": True, "mode": "gemini_ai", "extracted_data": parsed}
+        except Exception as exc:
+            print(f"[Gemini Voice Parse Error] {exc}", flush=True)
+
+    bn_to_en = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
+    en_to_bn = str.maketrans("0123456789", "০১২৩৪৫৬৭৮৯")
+    extracted = {}
+
+    patterns = {
+        "name": r"(?:আমার নাম|শিশুর নাম|নাম)\s*(?:হলো|হল|:)?\s*([^,।]+?)(?=\s*(?:পিতার|বাবার|মাতার|মায়ের|স্বামীর|মোবাইল|ফোন|ওয়ার্ড|গ্রাম|ঠিকানা|এনআইডি|,|।|$))",
+        "guardian_name": r"(?:পিতার নাম|বাবার নাম|স্বামীর নাম|পিতা|বাবা)\s*(?:হলো|হল|:)?\s*([^,।]+?)(?=\s*(?:মাতার|মায়ের|মোবাইল|ফোন|ওয়ার্ড|গ্রাম|ঠিকানা|এনআইডি|,|।|$))",
+        "mother_name": r"(?:মাতার নাম|মায়ের নাম|মাতা|মা)\s*(?:হলো|হল|:)?\s*([^,।]+?)(?=\s*(?:মোবাইল|ফোন|ওয়ার্ড|গ্রাম|ঠিকানা|এনআইডি|জন্মস্থান|,|।|$))",
+        "village": r"(?:গ্রাম|মহল্লা|এলাকা)\s*(?:হলো|হল|:)?\s*([^,।]+?)(?=\s*(?:ডাকঘর|ওয়ার্ড|মোবাইল|ফোন|,|।|$))",
+        "post_office": r"(?:ডাকঘর|পোস্ট অফিস)\s*(?:হলো|হল|:)?\s*([^,।]+?)(?=\s*(?:ওয়ার্ড|গ্রাম|মোবাইল|,|।|$))",
+        "birth_place": r"(?:জন্মস্থান|হাসপাতাল)\s*(?:হলো|হল|:)?\s*([^,।]+?)(?=\s*(?:ঠিকানা|গ্রাম|ওয়ার্ড|,|।|$))",
+    }
+    for key, pat in patterns.items():
+        m = _re.search(pat, transcript)
+        if m:
+            extracted[key] = m.group(1).strip()
+
+    normalized_digits = transcript.translate(bn_to_en)
+    phone_m = _re.search(r"(01[3-9]\d{8})", normalized_digits)
+    if phone_m:
+        extracted["phone"] = phone_m.group(1)
+
+    nid_m = _re.search(r"\b(\d{10}|\d{13}|\d{17})\b", normalized_digits)
+    if nid_m:
+        extracted["nid_brn"] = nid_m.group(1)
+
+    ward_m = _re.search(r"(?:ওয়ার্ড|ওয়ার্ড|ward)\s*(?:নং|নম্বর|no)?\s*([1-9])", normalized_digits, _re.I)
+    if ward_m:
+        extracted["ward_no"] = ward_m.group(1).translate(en_to_bn)
+
+    if any(w in transcript for w in ["পুরুষ", "ছেলে", "male"]):
+        extracted["gender"] = "male"
+    elif any(w in transcript for w in ["মহিলা", "নারী", "মেয়ে", "মেয়ে", "female"]):
+        extracted["gender"] = "female"
+
+    if extracted.get("village") or extracted.get("ward_no"):
+        parts = []
+        if extracted.get("village"):
+            parts.append(f"গ্রাম: {extracted['village']}")
+        if extracted.get("ward_no"):
+            parts.append(f"ওয়ার্ড নং: {extracted['ward_no']}")
+        if extracted.get("post_office"):
+            parts.append(f"ডাকঘর: {extracted['post_office']}")
+        extracted["address"] = ", ".join(parts)
+
+    return {"success": True, "mode": "smart_regex", "extracted_data": extracted}
 
 
 # ==========================================
