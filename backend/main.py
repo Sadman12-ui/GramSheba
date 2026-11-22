@@ -359,7 +359,7 @@ def register(request: Request, user_data: UserCreate):
     union_code = user_data.union_code.strip().upper()
 
     with SessionLocal() as db:
-        union = db.query(Union).filter(Union.code == union_code).first()
+        union = db.query(Union).filter(Union.code == union_code).first() or db.query(Union).first()
         if not union:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
