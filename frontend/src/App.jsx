@@ -55,36 +55,6 @@ function App() {
   const [showCitizenshipForm, setShowCitizenshipForm] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [showTransparencyModal, setShowTransparencyModal] = useState(false)
-
-  // ব্রাউজারের Back (←) বাটন দিয়ে যেকোনো সেবা/মডাল থেকে হোমপেজে ফেরার সাপোর্ট
-  useEffect(() => {
-    const isSubViewOpen =
-      showBirthForm ||
-      showCitizenshipForm ||
-      showVerifyModal ||
-      showTransparencyModal ||
-      showAuth ||
-      currentView !== 'home' || Boolean(selectedGenericService)
-
-    if (isSubViewOpen && !window.history.state?.gramshebaSubView) {
-      window.history.pushState({ gramshebaSubView: true }, '')
-    }
-  }, [showBirthForm, showCitizenshipForm, showVerifyModal, showTransparencyModal, showAuth, currentView, selectedGenericService])
-
-  useEffect(() => {
-    const handlePopState = () => {
-      setShowBirthForm(false)
-      setShowCitizenshipForm(false)
-      setShowVerifyModal(false)
-      setShowTransparencyModal(false)
-      setShowAuth(false)
-      setCurrentView('home')
-      setSelectedGenericService(null)
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
-
   const [verifyInitialId, setVerifyInitialId] = useState('')
   const [verifyInitialHash, setVerifyInitialHash] = useState('')
 

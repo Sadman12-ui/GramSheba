@@ -544,38 +544,6 @@ function CitizenshipApplication({ onBack, onSubmitSuccess }) {
 
   return (
     <div className="citizen-app-container">
-      <div
-        className="sticky-back-bar"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-          background: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(8px)',
-          padding: '0.6rem 1rem',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <button
-          type="button"
-          onClick={onBack}
-          style={{
-            background: '#f1f5f9',
-            border: '1px solid #cbd5e1',
-            borderRadius: '8px',
-            padding: '0.45rem 0.9rem',
-            fontWeight: 700,
-            fontSize: '0.86rem',
-            color: '#0f172a',
-            cursor: 'pointer',
-          }}
-        >
-          ← {lang === 'bn' ? 'হোমপেজে ফিরে যান' : 'Back to Home'}
-        </button>
-      </div>
-
       {/* অফলাইন ড্রাফট অ্যালার্ট */}
       {draftRestored && (
         <div
