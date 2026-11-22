@@ -6,7 +6,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
-    Float,
+    Float, Integer,
     ForeignKey,
     ForeignKeyConstraint,
     JSON,
@@ -215,6 +215,9 @@ class Complaint(Base):
     area: Mapped[str] = mapped_column(String(200), nullable=False)
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(40), default="লিপিবদ্ধ হয়েছে", nullable=False)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    upvotes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
@@ -228,4 +231,17 @@ class PaymentTransaction(Base):
     gateway: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="PAID", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class UnionNotice(Base):
+    __tablename__ = "union_notices"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    union_id: Mapped[Optional[int]] = mapped_column(ForeignKey("unions.id"), index=True, nullable=True)
+    title: Mapped[str] = mapped_column(String(220), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String(60), default="সাধারণ নোটিশ", nullable=False)
+    budget_info: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    progress_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

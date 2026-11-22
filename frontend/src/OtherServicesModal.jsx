@@ -152,6 +152,28 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
   const [draftRestored, setDraftRestored] = useState(false)
   const [ocrLoading, setOcrLoading] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [gpsCoords, setGpsCoords] = useState({ latitude: null, longitude: null })
+  const [gpsStatus, setGpsStatus] = useState('')
+
+  function handleDetectGps() {
+    if (!navigator.geolocation) {
+      setGpsStatus('⚠️ আপনার ব্রাউজার GPS সাপোর্ট করে না।')
+      return
+    }
+    setGpsStatus('📍 আপনার বর্তমান লোকেশন শনাক্ত করা হচ্ছে...')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6))
+        const lng = Number(pos.coords.longitude.toFixed(6))
+        setGpsCoords({ latitude: lat, longitude: lng })
+        setGpsStatus(`✅ GPS লোকেশন যুক্ত হয়েছে (${lat}, ${lng})`)
+      },
+      () => {
+        setGpsStatus('⚠️ লোকেশন অনুমতি (Permission) পাওয়া যায়নি।')
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
 
   const [formData, setFormData] = useState({
     applicant_name: '',
@@ -297,6 +319,8 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
             description: formData.reason_or_description,
             area: `${fullArea} (ওয়ার্ড: ${formData.ward_no}, গ্রাম: ${formData.village || 'উল্লেখ নেই'})`,
             phone: formData.phone,
+            latitude: gpsCoords.latitude,
+            longitude: gpsCoords.longitude,
           }),
         })
         const data = await res.json()
@@ -712,10 +736,24 @@ function OtherServicesModal({ service, onClose, onSuccess }) {
             )}
 
             {isComplaint && (
-              <label style={labelStyle}>
-                {t.complaintSubject} *
-                <input type="text" name="business_name" placeholder="অভিযোগের সংক্ষিপ্ত শিরোনাম" value={formData.business_name} onChange={handleChange} required style={inputStyle} />
-              </label>
+              <>
+                <label style={labelStyle}>
+                  {t.complaintSubject} *
+                  <input type="text" name="business_name" placeholder="অভিযোগের সংক্ষিপ্ত শিরোনাম" value={formData.business_name} onChange={handleChange} required style={inputStyle} />
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', background: '#fff', border: '1px dashed #94a3b8', borderRadius: '8px', padding: '0.65rem 0.85rem' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#334155' }}>
+                    <strong>📍 জিও-ট্যাগ (লাইভ ম্যাপ পিন):</strong> {gpsStatus || 'ঘটনাস্থলের GPS যুক্ত করলে ম্যাপে সরাসরি পিন দেখাবে।'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDetectGps}
+                    style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    📍 GPS যুক্ত করুন
+                  </button>
+                </div>
+              </>
             )}
 
             <label style={labelStyle}>

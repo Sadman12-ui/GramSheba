@@ -4,6 +4,7 @@ import Auth from './Auth'
 import BirthApplication from './BirthApplication'
 import CitizenshipApplication from './CitizenshipApplication'
 import PublicVerifyModal from './PublicVerifyModal'
+import TransparencyMapModal from './components/TransparencyMapModal'
 import OtherServicesModal from './OtherServicesModal'
 import OfficialCertificate from './OfficialCertificate'
 import CitizenAccessibility from './components/CitizenAccessibility'
@@ -53,6 +54,7 @@ function App() {
   const [showBirthForm, setShowBirthForm] = useState(false)
   const [showCitizenshipForm, setShowCitizenshipForm] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [showTransparencyModal, setShowTransparencyModal] = useState(false)
   const [verifyInitialId, setVerifyInitialId] = useState('')
   const [verifyInitialHash, setVerifyInitialHash] = useState('')
 
@@ -515,6 +517,22 @@ function App() {
           >
             🔍 সনদ যাচাই
           </button>
+            <button
+              type="button"
+              onClick={() => setShowTransparencyModal(true)}
+              style={{
+                background: '#0f766e',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.48rem 0.9rem',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                cursor: 'pointer',
+              }}
+            >
+              🗺️ লাইভ ম্যাপ ও স্বচ্ছতা
+            </button>
 
 
           {user && (
@@ -1519,6 +1537,13 @@ function App() {
         </div>
       )}
 
+
+      {showTransparencyModal && (
+        <TransparencyMapModal
+          currentUser={user}
+          onClose={() => setShowTransparencyModal(false)}
+        />
+      )}
 
       {showVerifyModal && (
         <PublicVerifyModal
