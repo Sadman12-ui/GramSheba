@@ -549,6 +549,132 @@ def _send_password_otp(email: str, otp: str) -> None:
         server.send_message(message)
 
 
+def _format_bd_phone(phone: str) -> str:
+    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    if digits.startswith("01") and len(digits) == 11:
+        return "88" + digits
+    if digits.startswith("8801") and len(digits) == 13:
+        return digits
+    return digits
+
+
+def _send_sms_notification(phone: str, text: str) -> None:
+    import base64
+    import urllib.parse
+    import urllib.request
+
+    cleaned_phone = _format_bd_phone(phone)
+    if not cleaned_phone:
+        return
+
+    # ১) BulkSMSBD (বাংলাদেশের জন্য)
+    bulksms_key = os.getenv("BULKSMSBD_API_KEY", "").strip()
+    bulksms_sender = os.getenv("BULKSMSBD_SENDER_ID", "").strip()
+    if bulksms_key and bulksms_sender:
+        params = urllib.parse.urlencode({
+            "api_key": bulksms_key,
+            "type": "text",
+            "number": cleaned_phone,
+            "senderid": bulksms_sender,
+            "message": text,
+        })
+        url = f"http://bulksmsbd.net/api/smsapi?{params}"
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            resp.read()
+        return
+
+    # ২) Twilio (আন্তর্জাতিক / ট্রায়াল)
+    tw_sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+    tw_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    tw_from = os.getenv("TWILIO_FROM_NUMBER", "").strip()
+    if tw_sid and tw_token and tw_from:
+        to_num = f"+{cleaned_phone}" if not cleaned_phone.startswith("+") else cleaned_phone
+        data = urllib.parse.urlencode({"To": to_num, "From": tw_from, "Body": text}).encode()
+        req = urllib.request.Request(
+            f"https://api.twilio.com/2010-04-01/Accounts/{tw_sid}/Messages.json",
+            data=data,
+            method="POST",
+        )
+        auth = base64.b64encode(f"{tw_sid}:{tw_token}".encode()).decode()
+        req.add_header("Authorization", f"Basic {auth}")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp.read()
+        return
+
+    print(f"[SMS LOG - Gateway Not Configured] To: {cleaned_phone} | Message: {text}")
+
+
+def _send_email_notification(to_email: str, subject: str, body: str) -> None:
+    host, username, password = (os.getenv(k) for k in ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD"))
+    sender = os.getenv("SMTP_FROM", username or "")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    if not all([host, username, password, sender]) or not to_email:
+        print(f"[EMAIL LOG - SMTP Not Configured] To: {to_email} | Subject: {subject}")
+        return
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"], message["To"] = sender, to_email
+    message.set_content(body)
+    with smtplib.SMTP(host, port, timeout=15) as server:
+        server.starttls(context=ssl.create_default_context())
+        server.login(username, password)
+        server.send_message(message)
+
+
+def _notify_status_change(
+    db,
+    user_id,
+    service_label: str,
+    tracking_id: str,
+    new_status: str,
+    remarks: str = "",
+    fallback_phone: str = "",
+) -> None:
+    import threading
+
+    user_row = db.query(User).filter(User.id == user_id).first() if user_id else None
+    to_email = (user_row.email if user_row else "") or ""
+    to_phone = (user_row.phone if user_row and user_row.phone else "") or fallback_phone or ""
+    applicant_name = (user_row.full_name if user_row else "") or "সম্মানিত নাগরিক"
+
+    status_key = (new_status or "").strip().lower()
+    status_bn_map = {
+        "approved": "অনুমোদিত (Approved)",
+        "rejected": "বাতিল (Rejected)",
+        "resolved": "সমাধান হয়েছে (Resolved)",
+        "in_review": "পর্যালোচনাধীন (In Review)",
+        "pending": "অপেক্ষমাণ (Pending)",
+    }
+    status_bn = status_bn_map.get(status_key, new_status)
+    remarks_line = f"\nঅ্যাডমিনের মন্তব্য: {remarks.strip()}" if remarks and remarks.strip() else ""
+
+    subject = f"GramSheba: আপনার {service_label} আবেদন {status_bn}"
+    email_body = (
+        f"প্রিয় {applicant_name},\n\n"
+        f"আপনার {service_label} আবেদনটির (ট্র্যাকিং আইডি: {tracking_id}) স্ট্যাটাস পরিবর্তন হয়ে '{status_bn}' হয়েছে।{remarks_line}\n\n"
+        f"বিস্তারিত জানতে GramSheba পোর্টালে লগইন করুন।\n\n"
+        f"ধন্যবাদ,\nGramSheba ডিজিটাল ইউনিয়ন পরিষদ"
+    )
+    sms_text = (
+        f"GramSheba: আপনার {service_label} (ID: {tracking_id}) আবেদনটি {status_bn} হয়েছে।"
+        + (f" মন্তব্য: {remarks.strip()}" if remarks and remarks.strip() else "")
+    )
+
+    def _worker():
+        try:
+            if to_email:
+                _send_email_notification(to_email, subject, email_body)
+        except Exception as exc:
+            print(f"[Notification Email Error] {exc}")
+        try:
+            if to_phone:
+                _send_sms_notification(to_phone, sms_text)
+        except Exception as exc:
+            print(f"[Notification SMS Error] {exc}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
 @app.post("/api/auth/forgot-password")
 @limiter.limit("5/hour")
 def forgot_password(request: Request, req: ForgotPasswordRequest):
@@ -1124,6 +1250,14 @@ def update_application_status(
         db.add(audit)
         db.commit()
         db.refresh(application)
+        _notify_status_change(
+            db,
+            getattr(application, "applicant_user_id", None) or getattr(application, "user_id", None),
+            "জন্ম নিবন্ধন",
+            getattr(application, "tracking_id", f"BIRTH-{application.id}"),
+            status_data.status,
+            getattr(status_data, "remarks", "") or "",
+        )
         return application
 
 
@@ -1214,6 +1348,14 @@ def update_citizenship_application_status(
         app_row.status = status_data.status
         db.commit()
         db.refresh(app_row)
+        _notify_status_change(
+            db,
+            getattr(app_row, "applicant_user_id", None) or getattr(app_row, "user_id", None),
+            "নাগরিকত্ব সনদ",
+            app_row.tracking_id,
+            app_row.status,
+            getattr(status_data, "remarks", "") or "",
+        )
         return {
             "id": app_row.id,
             "tracking_id": app_row.tracking_id,
@@ -1278,6 +1420,15 @@ def update_general_service_status(
         app_row.status = status_data.status
         db.commit()
         db.refresh(app_row)
+        _notify_status_change(
+            db,
+            getattr(app_row, "applicant_user_id", None) or getattr(app_row, "user_id", None),
+            f"নাগরিক সেবা ({app_row.service_type})",
+            app_row.tracking_id,
+            app_row.status,
+            getattr(status_data, "remarks", "") or "",
+            fallback_phone=getattr(app_row, "phone", "") or "",
+        )
         return {
             "id": app_row.id,
             "tracking_id": app_row.tracking_id,
@@ -1326,6 +1477,14 @@ def update_complaint_status(
         row.status = status_data.status.strip()
         db.commit()
         db.refresh(row)
+        _notify_status_change(
+            db,
+            getattr(row, "user_id", None),
+            "অভিযোগ",
+            row.complaint_id,
+            row.status,
+            fallback_phone=getattr(row, "phone", "") or "",
+        )
         return {"id": row.id, "complaint_id": row.complaint_id, "status": row.status}
 
 
