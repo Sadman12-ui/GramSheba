@@ -22,7 +22,8 @@ export default function OfficialCertificate({ certificateData, onClose }) {
     village = "",
     wardNo = "০৪",
     issueDate = "০৮ নভেম্বর ২০২৬",
-    chairmanName = "মো. আল-আমিন ভূঁইয়া"
+    chairmanName = "মো. আল-আমিন ভূঁইয়া",
+    verificationHash = ""
   } = certificateData;
 
   return (
@@ -105,13 +106,14 @@ export default function OfficialCertificate({ certificateData, onClose }) {
             {/* Live Verification Box */}
             <div className="flex items-center gap-3 bg-emerald-50/70 p-3 rounded-lg border border-emerald-200">
               <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://gramsheba-backend.onrender.com/api/public/verify/${trackingId}`} 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`${window.location.origin}/?verify=${trackingId}${verificationHash ? `&h=${verificationHash}` : ""}`)}`} 
                 alt="QR Verification"
                 className="w-20 h-20 bg-white p-1 border rounded shadow-sm"
               />
               <div className="text-xs text-emerald-900 leading-tight">
                 <p className="font-bold">ডিজিটাল সত্যতা যাচাই</p>
                 <p className="text-gray-500 mt-1">স্ক্যান করে পোর্টালে সরাসরি সনদের বৈধতা ও স্ট্যাটাস যাচাই করুন।</p>
+                {verificationHash && <p className="font-mono text-[10px] text-emerald-800 mt-1 break-all">SHA-256 Seal: <strong>{verificationHash}</strong></p>}
               </div>
             </div>
 

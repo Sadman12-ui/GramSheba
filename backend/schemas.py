@@ -117,6 +117,7 @@ class BirthCertificateResponse(BaseModel):
     birth_place: str
     address: str
     status: str
+    verification_hash: Optional[str] = None
 class ApplicationDocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

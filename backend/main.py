@@ -874,6 +874,14 @@ def my_birth_applications(current_user=Depends(get_current_user)):
         )
 
 
+
+def compute_certificate_hash(tracking_id: str, cert_type: str, beneficiary: str, union_name: str, ref_date: str) -> str:
+    import hashlib, hmac
+    secret = (os.getenv("JWT_SECRET") or "gramsheba-digital-seal-key").encode("utf-8")
+    payload = f"{tracking_id.strip().upper()}|{cert_type.strip()}|{beneficiary.strip()}|{union_name.strip()}|{str(ref_date).strip()}".encode("utf-8")
+    return hmac.new(secret, payload, hashlib.sha256).hexdigest()[:24].upper()
+
+
 @app.get(
     "/api/birth-applications/{tracking_id}/certificate",
     response_model=BirthCertificateResponse,
@@ -920,6 +928,13 @@ def get_birth_certificate(
             "birth_place": application.birth_place,
             "address": application.address,
             "status": application.status,
+            "verification_hash": compute_certificate_hash(
+                application.tracking_id,
+                "জন্ম নিবন্ধন সনদ",
+                application.child_name,
+                union_name,
+                str(application.birth_date),
+            ),
         }
 
 
@@ -952,6 +967,7 @@ def get_official_certificate_data(
             return {
                 "certificateType": "নাগরিকত্ব সনদপত্র",
                 "trackingId": citizen_app.tracking_id,
+                "verificationHash": compute_certificate_hash(citizen_app.tracking_id, "নাগরিকত্ব সনদ", d.get("name", ""), (union.name if union else "ইউনিয়ন পরিষদ"), citizen_app.created_at.date().isoformat()),
                 "unionName": d.get("union_name") or (union.name if union else "ইউনিয়ন পরিষদ"),
                 "upazila": d.get("upazila", "চাঁদপুর সদর"),
                 "district": d.get("district", "চাঁদপুর"),
@@ -983,6 +999,7 @@ def get_official_certificate_data(
             return {
                 "certificateType": SERVICE_TITLE_MAP.get(gen_app.service_type, "সরকারি প্রত্যয়ন সনদ"),
                 "trackingId": gen_app.tracking_id,
+                "verificationHash": compute_certificate_hash(gen_app.tracking_id, SERVICE_TITLE_MAP.get(gen_app.service_type, "সরকারি প্রত্যয়ন সনদ"), gen_app.applicant_name, (union.name if union else "ইউনিয়ন পরিষদ"), gen_app.created_at.date().isoformat()),
                 "unionName": union.name if union else "ইউনিয়ন পরিষদ",
                 "upazila": "সদর উপজেলা",
                 "district": "চাঁদপুর",
@@ -1066,8 +1083,37 @@ def my_citizenship_applications(current_user=Depends(get_current_user)):
 
 # Public QR Verification (Zero-Login Public Access)
 @app.get("/api/public/verify/{tracking_id}")
-def public_verify_certificate(tracking_id: str):
+def public_verify_certificate(tracking_id: str, h: Optional[str] = None):
     search_id = tracking_id.strip().upper()
+    provided_hash = (h or "").strip().upper()
+
+    def build_verified_response(cert_type: str, tid: str, beneficiary: str, union_name: str, status_val: str, issue_date_str: str):
+        expected_hash = compute_certificate_hash(tid, cert_type, beneficiary, union_name, issue_date_str)
+        if provided_hash and provided_hash != expected_hash:
+            return {
+                "valid": False,
+                "tampered": True,
+                "type": cert_type,
+                "tracking_id": tid,
+                "beneficiary": beneficiary,
+                "union": union_name,
+                "status": "tampered",
+                "issue_date": issue_date_str,
+                "expected_hash_prefix": expected_hash[:8] + "****************",
+                "message": "সতর্কতা! এই সনদের ডিজিটাল SHA-256 হ্যাশ মেলেনি — সনদটি পরিবর্তিত বা জাল হতে পারে।",
+            }
+        return {
+            "valid": True,
+            "tampered": False,
+            "hash_verified": bool(provided_hash),
+            "verification_hash": expected_hash,
+            "type": cert_type,
+            "tracking_id": tid,
+            "beneficiary": beneficiary,
+            "union": union_name,
+            "status": status_val,
+            "issue_date": issue_date_str,
+        }
 
     with SessionLocal() as db:
         birth_app = (
@@ -1077,26 +1123,26 @@ def public_verify_certificate(tracking_id: str):
         )
         if birth_app:
             union = db.query(Union).filter(Union.id == birth_app.union_id).first()
-            is_approved = birth_app.status == "approved"
-            if not is_approved:
+            union_name = union.name if union else "ইউনিয়ন পরিষদ"
+            if birth_app.status != "approved":
                 return {
                     "valid": False,
+                    "tampered": False,
                     "type": "জন্ম নিবন্ধন আবেদন",
                     "tracking_id": birth_app.tracking_id,
                     "beneficiary": birth_app.child_name,
-                    "union": union.name if union else "ইউনিয়ন পরিষদ",
+                    "union": union_name,
                     "status": birth_app.status,
                     "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।",
                 }
-            return {
-                "valid": True,
-                "type": "জন্ম নিবন্ধন সনদ",
-                "tracking_id": birth_app.tracking_id,
-                "beneficiary": birth_app.child_name,
-                "union": union.name if union else "ইউনিয়ন পরিষদ",
-                "status": birth_app.status,
-                "issue_date": str(birth_app.birth_date),
-            }
+            return build_verified_response(
+                "জন্ম নিবন্ধন সনদ",
+                birth_app.tracking_id,
+                birth_app.child_name,
+                union_name,
+                birth_app.status,
+                str(birth_app.birth_date),
+            )
 
         citizen_app = (
             db.query(CitizenshipApplication)
@@ -1105,26 +1151,27 @@ def public_verify_certificate(tracking_id: str):
         )
         if citizen_app:
             union = db.query(Union).filter(Union.id == citizen_app.union_id).first()
+            union_name = union.name if union else "ইউনিয়ন পরিষদ"
             data = citizen_app.applicant_data or {}
             if citizen_app.status != "approved":
                 return {
                     "valid": False,
+                    "tampered": False,
                     "type": "নাগরিকত্ব সনদ",
                     "tracking_id": citizen_app.tracking_id,
                     "beneficiary": data.get("name", ""),
-                    "union": union.name if union else "ইউনিয়ন পরিষদ",
+                    "union": union_name,
                     "status": citizen_app.status,
                     "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।",
                 }
-            return {
-                "valid": True,
-                "type": "নাগরিকত্ব সনদ",
-                "tracking_id": citizen_app.tracking_id,
-                "beneficiary": data.get("name", ""),
-                "union": union.name if union else "ইউনিয়ন পরিষদ",
-                "status": citizen_app.status,
-                "issue_date": citizen_app.created_at.date().isoformat(),
-            }
+            return build_verified_response(
+                "নাগরিকত্ব সনদ",
+                citizen_app.tracking_id,
+                data.get("name", ""),
+                union_name,
+                citizen_app.status,
+                citizen_app.created_at.date().isoformat(),
+            )
 
         gen_app = (
             db.query(GeneralServiceApplication)
@@ -1133,37 +1180,35 @@ def public_verify_certificate(tracking_id: str):
         )
         if gen_app:
             union = db.query(Union).filter(Union.id == gen_app.union_id).first()
+            union_name = union.name if union else "ইউনিয়ন পরিষদ"
             cert_title = SERVICE_TITLE_MAP.get(gen_app.service_type, "সরকারি প্রত্যয়ন সনদ")
             if gen_app.status != "approved":
                 return {
                     "valid": False,
+                    "tampered": False,
                     "type": cert_title,
                     "tracking_id": gen_app.tracking_id,
                     "beneficiary": gen_app.applicant_name,
-                    "union": union.name if union else "ইউনিয়ন পরিষদ",
+                    "union": union_name,
                     "status": gen_app.status,
                     "message": "আবেদনটি এখনো অনুমোদিত সনদ নয়।",
                 }
-            return {
-                "valid": True,
-                "type": cert_title,
-                "tracking_id": gen_app.tracking_id,
-                "beneficiary": gen_app.applicant_name,
-                "union": union.name if union else "ইউনিয়ন পরিষদ",
-                "status": gen_app.status,
-                "issue_date": gen_app.created_at.date().isoformat(),
-            }
+            return build_verified_response(
+                cert_title,
+                gen_app.tracking_id,
+                gen_app.applicant_name,
+                union_name,
+                gen_app.status,
+                gen_app.created_at.date().isoformat(),
+            )
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="প্রদত্ত ট্র্যাকিং নম্বরে কোনো সনদ পাওয়া যায়নি।",
+        detail="প্রদত্ত ট্র্যাকিং নম্বরে কোনো সরকারি সনদ পাওয়া যায়নি বা সনদটি ভুয়া।",
     )
 
 
 # ==========================================
-# Smart AI Document Scanner (OCR Mock)
-# ==========================================
-
 @app.post("/api/ocr/scan-document")
 @limiter.limit("10/minute")
 async def scan_document_ocr(request: Request, file: UploadFile = File(...)):

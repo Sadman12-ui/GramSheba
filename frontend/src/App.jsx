@@ -53,6 +53,19 @@ function App() {
   const [showBirthForm, setShowBirthForm] = useState(false)
   const [showCitizenshipForm, setShowCitizenshipForm] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [verifyInitialId, setVerifyInitialId] = useState('')
+  const [verifyInitialHash, setVerifyInitialHash] = useState('')
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const vId = params.get('verify')
+    const vHash = params.get('h') || ''
+    if (vId) {
+      setVerifyInitialId(vId)
+      setVerifyInitialHash(vHash)
+      setShowVerifyModal(true)
+    }
+  }, [])
   const [showUnionRegister, setShowUnionRegister] = useState(false)
   const [user, setUser] = useState(getSavedUser)
 
@@ -1329,7 +1342,18 @@ function App() {
                 </div>
 
                 <div className="bdris-barcode-box">
-                  <div className="barcode-mockup">||| | | |||| | ||| |||| | ||</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=92x92&data=${encodeURIComponent(`${window.location.origin}/?verify=${selectedCertificate.tracking_id}${selectedCertificate.verification_hash ? `&h=${selectedCertificate.verification_hash}` : ''}`)}`}
+                      alt="Birth Certificate QR Verification"
+                      style={{ width: '78px', height: '78px', border: '1px solid #cbd5e1', padding: '3px', background: '#fff', borderRadius: '6px' }}
+                    />
+                    {selectedCertificate.verification_hash && (
+                      <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#166534', fontWeight: 700 }}>
+                        SHA256:{selectedCertificate.verification_hash.slice(0, 12)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1497,7 +1521,18 @@ function App() {
 
 
       {showVerifyModal && (
-        <PublicVerifyModal onClose={() => setShowVerifyModal(false)} />
+        <PublicVerifyModal
+          initialTrackingId={verifyInitialId}
+          initialHash={verifyInitialHash}
+          onClose={() => {
+            setShowVerifyModal(false)
+            setVerifyInitialId('')
+            setVerifyInitialHash('')
+            if (window.location.search.includes('verify=')) {
+              window.history.replaceState({}, '', window.location.pathname)
+            }
+          }}
+        />
       )}
 
       <Chatbot />
