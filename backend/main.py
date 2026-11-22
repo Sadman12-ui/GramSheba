@@ -366,9 +366,18 @@ def register(request: Request, user_data: UserCreate):
                 detail="ভুল ইউনিয়ন কোড। অনুগ্রহ করে সঠিক কোড দিন।",
             )
 
+        full_name_clean = user_data.full_name.strip()
+        from sqlalchemy import func
+        existing_name = db.query(User).filter(func.lower(User.full_name) == full_name_clean.lower()).first()
+        if existing_name:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="এই নামটি ইতিমধ্যে ব্যবহৃত হয়েছে। অনুগ্রহ করে অন্য একটি ইউনিক নাম দিন।",
+            )
+
         try:
             user = User(
-                full_name=user_data.full_name.strip(),
+                full_name=full_name_clean,
                 email=email,
                 phone=user_data.phone.strip(),
                 area=user_data.area.strip(),
