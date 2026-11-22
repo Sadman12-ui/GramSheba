@@ -404,28 +404,58 @@ def list_public_unions():
 @limiter.limit("15/minute")
 def register(request: Request, user_data: UserCreate):
     email = str(user_data.email).strip().lower()
-    union_code = user_data.union_code.strip().upper()
+    union_code = (user_data.union_code or "AUTO").strip().upper()
+    union_name_req = (getattr(user_data, "union_name", None) or "").strip()
 
     with SessionLocal() as db:
-        union = db.query(Union).filter(Union.code == union_code).first() or db.query(Union).first()
-        if not union:
-            union_kwargs = {"name": "রামপুর ইউনিয়ন পরিষদ", "code": union_code or "RAMPUR01"}
-            for col in Union.__table__.columns:
-                if col.name not in union_kwargs and not col.primary_key and not col.nullable and col.default is None and col.server_default is None:
-                    try:
-                        py_type = col.type.python_type
-                    except Exception:
-                        py_type = str
-                    if py_type is int:
-                        union_kwargs[col.name] = 0
-                    elif py_type is bool:
-                        union_kwargs[col.name] = True
-                    else:
-                        union_kwargs[col.name] = "সাধারণ"
-            union = Union(**union_kwargs)
-            db.add(union)
-            db.commit()
-            db.refresh(union)
+        union = None
+        if union_name_req:
+            union = db.query(Union).filter(Union.name == union_name_req).first()
+            if not union:
+                import hashlib
+                base_code = "UN" + hashlib.md5(union_name_req.encode("utf-8")).hexdigest()[:8].upper()
+                gen_code = base_code
+                suffix = 1
+                while db.query(Union).filter(Union.code == gen_code).first():
+                    gen_code = f"{base_code}{suffix}"
+                    suffix += 1
+                union_kwargs = {"name": union_name_req, "code": gen_code}
+                for col in Union.__table__.columns:
+                    if col.name not in union_kwargs and not col.primary_key and not col.nullable and col.default is None and col.server_default is None:
+                        try:
+                            py_type = col.type.python_type
+                        except Exception:
+                            py_type = str
+                        if py_type is int:
+                            union_kwargs[col.name] = 0
+                        elif py_type is bool:
+                            union_kwargs[col.name] = True
+                        else:
+                            union_kwargs[col.name] = "সাধারণ"
+                union = Union(**union_kwargs)
+                db.add(union)
+                db.commit()
+                db.refresh(union)
+        else:
+            union = db.query(Union).filter(Union.code == union_code).first() or db.query(Union).first()
+            if not union:
+                union_kwargs = {"name": "রামপুর ইউনিয়ন পরিষদ", "code": union_code or "RAMPUR01"}
+                for col in Union.__table__.columns:
+                    if col.name not in union_kwargs and not col.primary_key and not col.nullable and col.default is None and col.server_default is None:
+                        try:
+                            py_type = col.type.python_type
+                        except Exception:
+                            py_type = str
+                        if py_type is int:
+                            union_kwargs[col.name] = 0
+                        elif py_type is bool:
+                            union_kwargs[col.name] = True
+                        else:
+                            union_kwargs[col.name] = "সাধারণ"
+                union = Union(**union_kwargs)
+                db.add(union)
+                db.commit()
+                db.refresh(union)
 
         full_name_clean = user_data.full_name.strip()
         from sqlalchemy import func

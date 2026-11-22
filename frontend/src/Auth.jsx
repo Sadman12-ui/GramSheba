@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './Auth.css'
 import API_BASE from './api'
+import { bangladeshGeoData } from './bangladeshData'
 
 function Auth({ onBack, onLogin }) {
   const [isLogin, setIsLogin] = useState(true)
@@ -8,6 +9,11 @@ function Auth({ onBack, onLogin }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [unions, setUnions] = useState([])
+  const [selectedDivision, setSelectedDivision] = useState('')
+  const [selectedDistrict, setSelectedDistrict] = useState('')
+  const [selectedUpazila, setSelectedUpazila] = useState('')
+  const [selectedUnion, setSelectedUnion] = useState('')
+  const [customUnion, setCustomUnion] = useState('')
 
   // লগইন স্টেট
   const [loginEmail, setLoginEmail] = useState('')
@@ -81,6 +87,15 @@ function Auth({ onBack, onLogin }) {
       return
     }
 
+    const finalUnionName = (selectedUnion === '__custom__' ? customUnion : selectedUnion).trim()
+    if (!finalUnionName) {
+      setError('অনুগ্রহ করে আপনার বিভাগ, জেলা, উপজেলা ও ইউনিয়ন পরিষদ নির্বাচন করুন।')
+      return
+    }
+
+    const matchedUnion = unions.find((u) => u.name === finalUnionName)
+    const computedArea = [finalUnionName, selectedUpazila, selectedDistrict].filter(Boolean).join(', ')
+
     setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/api/register`, {
@@ -90,9 +105,10 @@ function Auth({ onBack, onLogin }) {
           full_name: regData.full_name.trim(),
           email: regData.email.trim().toLowerCase(),
           phone: regData.phone.trim(),
-          area: regData.area.trim(),
+          area: computedArea || finalUnionName,
           password: regData.password,
-          union_code: regData.union_code.trim().toUpperCase(),
+          union_code: matchedUnion ? matchedUnion.code : 'AUTO',
+          union_name: finalUnionName,
         }),
       })
 
@@ -295,6 +311,117 @@ function Auth({ onBack, onLogin }) {
                   />
                 </div>
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '3px' }}>
+                    বিভাগ *
+                  </label>
+                  <select
+                    value={selectedDivision}
+                    onChange={(e) => {
+                      setSelectedDivision(e.target.value)
+                      setSelectedDistrict('')
+                      setSelectedUpazila('')
+                      setSelectedUnion('')
+                      setCustomUnion('')
+                      setError('')
+                    }}
+                    style={{ width: '100%', padding: '0.68rem 0.75rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.9rem', background: '#fff' }}
+                    required
+                  >
+                    <option value="">বিভাগ নির্বাচন করুন</option>
+                    {Object.keys(bangladeshGeoData).map((div) => (
+                      <option key={div} value={div}>{div}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '3px' }}>
+                    জেলা *
+                  </label>
+                  <select
+                    value={selectedDistrict}
+                    disabled={!selectedDivision}
+                    onChange={(e) => {
+                      setSelectedDistrict(e.target.value)
+                      setSelectedUpazila('')
+                      setSelectedUnion('')
+                      setCustomUnion('')
+                      setError('')
+                    }}
+                    style={{ width: '100%', padding: '0.68rem 0.75rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.9rem', background: '#fff' }}
+                    required
+                  >
+                    <option value="">জেলা নির্বাচন করুন</option>
+                    {selectedDivision && Object.keys(bangladeshGeoData[selectedDivision] || {}).map((dist) => (
+                      <option key={dist} value={dist}>{dist}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '3px' }}>
+                    উপজেলা *
+                  </label>
+                  <select
+                    value={selectedUpazila}
+                    disabled={!selectedDistrict}
+                    onChange={(e) => {
+                      setSelectedUpazila(e.target.value)
+                      setSelectedUnion('')
+                      setCustomUnion('')
+                      setError('')
+                    }}
+                    style={{ width: '100%', padding: '0.68rem 0.75rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.9rem', background: '#fff' }}
+                    required
+                  >
+                    <option value="">উপজেলা নির্বাচন করুন</option>
+                    {selectedDivision && selectedDistrict && Object.keys(bangladeshGeoData[selectedDivision]?.[selectedDistrict] || {}).map((upa) => (
+                      <option key={upa} value={upa}>{upa}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '3px' }}>
+                    ইউনিয়ন পরিষদ / পৌরসভা *
+                  </label>
+                  <select
+                    value={selectedUnion}
+                    disabled={!selectedUpazila}
+                    onChange={(e) => {
+                      setSelectedUnion(e.target.value)
+                      setError('')
+                    }}
+                    style={{ width: '100%', padding: '0.68rem 0.75rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.9rem', background: '#fff' }}
+                    required
+                  >
+                    <option value="">ইউনিয়ন নির্বাচন করুন</option>
+                    {selectedDivision && selectedDistrict && selectedUpazila && (bangladeshGeoData[selectedDivision]?.[selectedDistrict]?.[selectedUpazila] || []).map((uName) => (
+                      <option key={uName} value={uName}>{uName}</option>
+                    ))}
+                    <option value="__custom__">অন্যান্য (নিজে লিখুন)</option>
+                  </select>
+                </div>
+              </div>
+
+              {selectedUnion === '__custom__' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '3px' }}>
+                    আপনার ইউনিয়ন পরিষদের নাম লিখুন *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="যেমন: আশুলিয়া ইউনিয়ন পরিষদ"
+                    value={customUnion}
+                    onChange={(e) => { setCustomUnion(e.target.value); setError('') }}
+                    style={{ width: '100%', padding: '0.68rem 0.9rem', border: '1.5px solid #cbd5e1', borderRadius: '10px', fontSize: '0.92rem' }}
+                    required
+                  />
+                </div>
+              )}
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '3px' }}>

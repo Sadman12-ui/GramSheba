@@ -12,14 +12,14 @@ export default function OfficialCertificate({ certificateData, onClose }) {
   const {
     certificateType = "নাগরিকত্ব সনদপত্র",
     trackingId = "GS-2026-NID-8849",
-    unionName = "১ নং রামপুর ইউনিয়ন পরিষদ",
+    unionName = "ইউনিয়ন পরিষদ",
     upazila = "চাঁদপুর সদর",
     district = "চাঁদপুর",
     holderName = "শাহ মো. সাদমান সাকিব",
     fatherName = "মো. জালাল আহমদ",
     motherName = "মোসা. সালেহা বেগম",
     nidNumber = "19981324567890123",
-    village = "রামপুর",
+    village = "",
     wardNo = "০৪",
     issueDate = "০৮ নভেম্বর ২০২৬",
     chairmanName = "মো. আল-আমিন ভূঁইয়া"
