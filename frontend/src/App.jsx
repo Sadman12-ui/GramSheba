@@ -1339,18 +1339,14 @@ function App() {
 
             <div className="bdris-certificate-sheet">
               <div className="bdris-top-grid">
-                <div className="bdris-qr-box">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(`${API_BASE}/api/public/verify/${selectedCertificate.tracking_id}`)}`}
-                    alt="QR Code"
-                  />
-                </div>
+                <div className="bdris-qr-box" aria-hidden="true" />
 
                 <div className="bdris-govt-header">
                   <img
                     src="https://upload.wikimedia.org/wikipedia/commons/8/84/Government_Seal_of_Bangladesh.svg"
                     alt="Bangladesh Govt Emblem"
                     className="govt-emblem"
+                    style={{ display: 'block', margin: '0 auto 8px' }}
                   />
                   <h3>Government of the People's Republic of Bangladesh</h3>
                   <h4>Office of the Registrar, Birth and Death Registration</h4>
